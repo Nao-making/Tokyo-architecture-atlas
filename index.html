@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>東京建築マップ</title>
+<link rel="icon" type="image/svg+xml" href="tokyo-architecture-atlas-icon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="tokyo-architecture-atlas-icon-180.png">
+<link rel="manifest" href="tokyo-architecture-map.webmanifest">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="東京建築マップ">
+<style>
+:root{--ink:#1d2824;--muted:#6b7670;--green:#254d3c;--glass:rgba(255,255,255,.58);--glass-hi:rgba(255,255,255,.8);--edge:rgba(255,255,255,.78);--shadow:0 10px 34px rgba(31,52,42,.13);--hl:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 0 rgba(255,255,255,.35)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Noto Sans JP",sans-serif;-webkit-font-smoothing:antialiased;background:#fff}
+.app{position:relative;display:flex;flex-direction:column;height:100vh;height:100dvh;background:#fff}
+
+/* glass surfaces (blur only on the few large / overlay surfaces) */
+.headcard,.map-controls button,.zoom-level,.map-popup,.detail-sheet,.atlas-sheet,.view-toggle,.detail-close,.detail-overlay,.atlas-dialog{-webkit-backdrop-filter:saturate(180%) blur(22px);backdrop-filter:saturate(180%) blur(22px)}
+
+/* header card */
+.headcard{flex:none;position:relative;z-index:8;margin:12px 14px 0;border-radius:28px;background:linear-gradient(160deg,rgba(255,255,255,.78),rgba(255,255,255,.5));border:1px solid var(--edge);box-shadow:var(--shadow),var(--hl)}
+.topbar{display:grid;grid-template-columns:1fr minmax(280px,560px) 1fr;align-items:center;gap:16px;padding:14px 22px 8px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand img{width:34px;height:34px;flex:none;filter:drop-shadow(0 3px 6px rgba(37,77,60,.3))}
+.brand b{display:block;font:600 19px/1.15 Georgia,"Times New Roman",serif;letter-spacing:.01em;white-space:nowrap}
+.brand small{display:block;font-size:9px;letter-spacing:.16em;color:var(--muted);font-weight:600}
+.searchbar{display:flex;align-items:center;gap:10px;height:48px;padding:0 20px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid var(--edge);box-shadow:0 2px 10px rgba(31,52,42,.08),var(--hl);transition:box-shadow .2s,background .2s;cursor:text}
+.searchbar:focus-within{background:rgba(255,255,255,.95);box-shadow:0 0 0 3px rgba(37,77,60,.14),0 6px 20px rgba(31,52,42,.14)}
+.searchbar svg{width:18px;height:18px;flex:none;color:#3a4a42}
+.searchbar input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:14px;color:var(--ink)}
+.count{justify-self:end;font-size:12px;font-weight:600;color:#44564c;font-variant-numeric:tabular-nums;white-space:nowrap;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.55);border:1px solid var(--edge)}
+
+.chips{display:flex;align-items:center;gap:9px;padding:4px 22px 16px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips select{appearance:none;-webkit-appearance:none;flex:none;max-width:210px;height:38px;padding:0 34px 0 16px;border:1px solid var(--edge);border-radius:999px;background:rgba(255,255,255,.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23222' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 13px center/12px;box-shadow:0 1px 6px rgba(31,52,42,.07),var(--hl);font:inherit;font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;text-overflow:ellipsis;transition:background-color .15s,box-shadow .15s}
+.chips select:hover{background-color:rgba(255,255,255,.95)}
+.chips select.on{background-color:var(--green);color:#fff;border-color:var(--green);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");box-shadow:0 4px 12px rgba(37,77,60,.3)}
+.chips select.on option{color:#222;background:#fff}
+.reset{flex:none;border:0;background:transparent;color:var(--green);font:inherit;font-size:13px;font-weight:600;padding:8px 8px;cursor:pointer;border-radius:999px}
+.reset:hover{background:rgba(255,255,255,.7)}
+.sortchip{display:flex;align-items:center;gap:8px;margin-left:auto;flex:none;font-size:12px;color:var(--muted)}
+
+/* layout: two floating cards (list + map) */
+.layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:14px;padding:12px 14px 14px}
+.side{min-height:0;display:flex;flex-direction:column;position:relative}
+.list{flex:1;min-height:0;overflow:auto;padding:6px 8px 30px 6px;margin:0 -8px 0 -6px;display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:16px;align-content:start;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(37,77,60,.25) transparent}
+.empty,.list-note{grid-column:1/-1}
+.empty{padding:40px 0;color:var(--muted);text-align:center}
+.list-note{margin:4px 6px 0;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.4);border:1px solid var(--edge);font-size:11px;line-height:1.7;color:#7d887f}
+
+/* list cards */
+.ph{position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M10 40V16l14-8 14 8v24M18 40V24h12v16M6 40h36' fill='none' stroke='%23b4c1b6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),linear-gradient(135deg,#e9eee8,#f4f1e8);background-repeat:no-repeat;background-position:center;background-size:40px,cover}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .4s,transform .5s}
+.ph img.on{opacity:1}
+.card{cursor:pointer;outline:none;padding:8px 8px 13px;border-radius:26px;background:linear-gradient(150deg,rgba(255,255,255,.86),rgba(255,255,255,.52));border:1px solid var(--edge);box-shadow:0 6px 22px rgba(31,52,42,.09),var(--hl);transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s}
+.card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(31,52,42,.17),var(--hl)}
+.card:hover .ph img.on{transform:scale(1.05)}
+.card.active,.card:focus-visible{box-shadow:0 0 0 2px var(--green),0 12px 30px rgba(31,52,42,.18)}
+.card-photo{position:relative;aspect-ratio:4/3;border-radius:19px;overflow:hidden;background:#e9eee8;box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}
+.card-photo:after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.28),transparent 32%);pointer-events:none}
+.badge{position:absolute;z-index:2;left:9px;top:9px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.84);border:1px solid rgba(255,255,255,.9);font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.card-text{padding:11px 8px 0}
+.card-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.card-row h3{margin:0;font-size:15px;font-weight:600;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-year{flex:none;font-size:12px;font-weight:600;color:var(--green);font-variant-numeric:tabular-nums}
+.meta{font-size:12.5px;color:var(--muted);line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* map card */
+.mapwrap{position:relative;min-width:0;border-radius:28px;overflow:hidden;border:1px solid var(--edge);box-shadow:var(--shadow),0 0 0 4px rgba(255,255,255,.35);isolation:isolate}
+#map{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;background:#e8e8e5;touch-action:none}
+#tiles,#markers{position:absolute;inset:0;overflow:hidden}
+.tile{position:absolute;width:256px;height:256px;user-select:none;pointer-events:none}
+.map-attr{position:absolute;bottom:8px;right:10px;background:rgba(255,255,255,.75);padding:2px 8px;border-radius:999px;font-size:10px;z-index:4}
+.map-attr a{color:var(--green)}
+.map-error{position:absolute;z-index:4;top:14px;left:50%;transform:translateX(-50%);background:rgba(255,248,231,.92);border:1px solid #e9d4a3;padding:6px 12px;border-radius:999px;font-size:11px;color:#725b22}
+.map-controls{position:absolute;z-index:5;right:16px;top:16px;display:grid;gap:9px}
+.map-controls button{width:42px;height:42px;border:1px solid var(--edge);border-radius:50%;background:var(--glass-hi);color:#1d2824;font-size:20px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(31,52,42,.2),var(--hl);transition:transform .18s,background .18s}
+.map-controls button:hover{transform:scale(1.08);background:rgba(255,255,255,.95)}
+.zoom-level{position:absolute;z-index:5;right:16px;top:122px;width:42px;padding:4px 0;border-radius:14px;background:var(--glass-hi);border:1px solid var(--edge);text-align:center;font-size:10px;line-height:1.25;color:#4b5a51;pointer-events:none;font-variant-numeric:tabular-nums;box-shadow:0 3px 10px rgba(31,52,42,.14),var(--hl)}
+
+/* pins: glass pills */
+.pin{position:absolute;transform:translate(-50%,-50%);border:0;background:transparent;padding:0;cursor:pointer;z-index:1}
+.pill{display:block;min-width:46px;padding:7px 12px;border-radius:999px;background:linear-gradient(160deg,rgba(255,255,255,.96),rgba(255,255,255,.74));border:1px solid rgba(255,255,255,.95);color:#1d2824;font:600 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;font-variant-numeric:tabular-nums;box-shadow:0 3px 10px rgba(20,40,30,.28),var(--hl);transition:transform .15s,background .15s,color .15s}
+.pill.cluster{min-width:36px;padding:8px 11px;background:linear-gradient(160deg,rgba(60,112,88,.95),rgba(37,77,60,.92));border-color:rgba(255,255,255,.55);color:#fff}
+.pin:hover,.pin.hl,.pin.selected{z-index:3}
+.pin:hover .pill,.pin.hl .pill,.pin.selected .pill{background:linear-gradient(160deg,rgba(44,60,52,.96),rgba(24,34,29,.94));border-color:rgba(255,255,255,.35);color:#fff;transform:scale(1.12)}
+.pin:focus-visible{outline:2px solid #1d2824;outline-offset:3px;border-radius:999px}
+
+/* map mini card */
+.map-popup{position:absolute;z-index:6;transform:translate(12px,-100%);width:252px;padding:6px;background:linear-gradient(160deg,rgba(255,255,255,.88),rgba(255,255,255,.66));border:1px solid var(--edge);border-radius:24px;box-shadow:0 16px 44px rgba(20,40,30,.28),var(--hl);overflow:hidden;font-size:12px}
+.mini-photo{position:relative;aspect-ratio:16/10;border-radius:18px;overflow:hidden;background:#e9eee8}
+.mini-body{padding:10px 10px 8px}
+.mini-body strong{display:block;font-size:14px;line-height:1.35}
+.mini-body .meta{white-space:normal}
+.mini-body a{color:var(--green);display:block;padding:3px 0}
+.mini-btn{margin-top:9px;width:100%;border:0;border-radius:14px;background:linear-gradient(160deg,#3a5a4b,#254d3c);color:#fff;padding:10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(37,77,60,.35),inset 0 1px 0 rgba(255,255,255,.3)}
+
+/* detail sheet: glass sheet, content organised in cards */
+.detail-overlay{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:24px;background:rgba(22,34,28,.34)}
+.detail-sheet{width:min(780px,100%);max-height:min(90vh,940px);overflow:auto;border-radius:32px;background:linear-gradient(165deg,rgba(250,251,248,.86),rgba(236,242,236,.74));border:1px solid var(--edge);box-shadow:0 28px 90px rgba(10,24,16,.38),var(--hl);padding:10px}
+.detail-close{position:sticky;top:6px;z-index:3;display:block;width:38px;height:38px;margin:6px 6px -50px auto;border:1px solid var(--edge);border-radius:50%;background:rgba(255,255,255,.82);box-shadow:0 3px 12px rgba(0,0,0,.2),var(--hl);font-size:20px;line-height:1;cursor:pointer;color:#1d2824}
+.detail-hero{position:relative;aspect-ratio:16/9;border-radius:24px;overflow:hidden;background:#e9eee8;box-shadow:0 6px 20px rgba(31,52,42,.15)}
+.detail-body{padding:0}
+.dcard{margin-top:10px;padding:16px 20px;border-radius:24px;background:linear-gradient(150deg,rgba(255,255,255,.82),rgba(255,255,255,.52));border:1px solid var(--edge);box-shadow:0 3px 14px rgba(31,52,42,.08),var(--hl)}
+.dcard h4{margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--muted)}
+.dcard h2{margin:0;font:600 27px/1.28 Georgia,"Times New Roman",serif}
+.detail-sub{margin:5px 0 0;color:var(--muted);font-size:14px}
+.detail-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.detail-tags span{padding:5px 12px;border-radius:999px;background:rgba(37,77,60,.09);border:1px solid rgba(37,77,60,.14);color:#254d3c;font-size:12px;font-weight:600}
+.detail-desc{margin:0;font-size:15px;line-height:1.85}
+.detail-info{display:grid;grid-template-columns:auto 1fr;gap:7px 18px;margin:0;font-size:13px}
+.detail-info dt{color:var(--muted)}
+.detail-info dd{margin:0;overflow-wrap:anywhere}
+.detail-actions{display:flex;gap:9px;flex-wrap:wrap}
+.btn{display:inline-block;border:1px solid var(--edge);border-radius:16px;background:rgba(255,255,255,.75);color:var(--ink);padding:11px 16px;font:inherit;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;box-shadow:0 2px 8px rgba(31,52,42,.1),var(--hl);transition:transform .15s,background .15s}
+.btn:hover{background:#fff;transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(160deg,#3a5a4b,#254d3c);border-color:rgba(255,255,255,.25);color:#fff;box-shadow:0 5px 14px rgba(37,77,60,.35),inset 0 1px 0 rgba(255,255,255,.3)}
+
+/* photo / architect dialog */
+.atlas-dialog{position:fixed;z-index:50;inset:0;display:grid;place-items:center;padding:20px;background:rgba(22,34,28,.4)}
+.atlas-sheet{width:min(720px,100%);max-height:min(86vh,820px);overflow:auto;border-radius:30px;background:linear-gradient(165deg,rgba(250,251,248,.9),rgba(236,242,236,.8));border:1px solid var(--edge);box-shadow:0 28px 90px rgba(10,24,16,.4),var(--hl);padding:22px}
+.atlas-sheet-head{display:grid;grid-template-columns:minmax(0,1fr)}
+#dialogContent{grid-area:1/1;min-width:0}
+.atlas-close{grid-area:1/1;justify-self:end;align-self:start;position:sticky;top:0;z-index:2;border:1px solid var(--edge);background:rgba(255,255,255,.85);border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+#dialogContent>h2{margin:0;padding-right:84px;font:600 24px/1.3 Georgia,"Times New Roman",serif}
+.atlas-sheet .subtitle{font-size:12px;color:var(--muted);margin:6px 0 16px}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.photo-item{overflow:hidden;border:1px solid var(--edge);border-radius:18px;background:rgba(255,255,255,.7);color:var(--ink);text-decoration:none;box-shadow:0 3px 12px rgba(31,52,42,.08)}
+.photo-item img{width:100%;height:130px;object-fit:cover;display:block;background:#e9eee8}
+.photo-item span{display:block;padding:8px 10px;font-size:11px;line-height:1.4}
+.bio-panel{border:1px solid var(--edge);border-radius:22px;background:rgba(255,255,255,.6);box-shadow:var(--hl);padding:14px 18px;margin:12px 0}
+.bio-panel strong{font-size:11px;letter-spacing:.1em;color:var(--muted)}
+.bio-person{margin-top:10px}
+.bio-person h3{font-size:14px;margin:0;color:var(--green)}
+.bio-person p{font-size:13px;line-height:1.7;margin:5px 0}
+.bio-person a{font-size:11px;color:var(--green)}
+.architect-stats{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.architect-stats span{padding:5px 12px;border-radius:999px;background:rgba(37,77,60,.09);border:1px solid rgba(37,77,60,.14);font-size:11px;font-weight:600;color:var(--green)}
+.architect-projects{display:grid;gap:8px}
+.architect-projects a{padding:11px 14px;border:1px solid var(--edge);border-radius:18px;background:rgba(255,255,255,.7);text-decoration:none;color:var(--ink);font-size:13px;font-weight:500;box-shadow:0 2px 8px rgba(31,52,42,.06)}
+.architect-projects small{display:block;color:var(--muted);margin-top:3px;font-weight:400}
+.dialog-note{font-size:11px;color:var(--muted);line-height:1.6;margin-top:14px}
+
+.view-toggle{display:none}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+.headcard,.map-popup,.detail-sheet,.atlas-sheet{background:#f7f8f5}
+.map-controls button,.zoom-level,.detail-close{background:#fff}
+}
+@media(prefers-reduced-transparency:reduce){
+.headcard,.map-popup,.detail-sheet,.atlas-sheet{background:#f7f8f5!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+}
+
+/* tablet / phone: one pane at a time (list = 2 columns), floating glass switch */
+@media(max-width:900px){
+.headcard{margin:8px 8px 0;border-radius:24px}
+.topbar{grid-template-columns:1fr auto;gap:10px;padding:12px 14px 6px}
+.brand small{display:none}
+.brand b{font-size:17px}
+.brand img{width:30px;height:30px}
+.searchbar{grid-column:1/-1;order:3;height:44px;padding:0 16px}
+.chips{padding:4px 14px 12px}
+.sortchip{margin-left:0}
+.layout{display:block;position:relative;padding:8px}
+.side{height:100%}
+.mapwrap{display:none;height:100%;border-radius:24px}
+.layout.show-map .side{display:none}
+.layout.show-map .mapwrap{display:block}
+.list{grid-template-columns:repeat(2,minmax(0,1fr));padding:4px 6px 110px;margin:0 -6px;gap:10px}
+.card{padding:6px 6px 10px;border-radius:20px}
+.card-photo{border-radius:15px}
+.badge{left:6px;top:6px;padding:3px 8px;font-size:10px}
+.card-text{padding:9px 5px 0}
+.card-row{flex-direction:column;gap:1px}
+.card-row h3{font-size:13px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.card-year{order:2;font-size:11px}
+.meta{font-size:11px}
+.view-toggle{display:flex;align-items:center;position:fixed;z-index:20;left:50%;bottom:22px;transform:translateX(-50%);border:1px solid rgba(255,255,255,.35);border-radius:999px;background:rgba(26,38,32,.78);color:#fff;padding:13px 24px;font:inherit;font-size:14px;font-weight:600;box-shadow:0 10px 28px rgba(10,24,16,.38),inset 0 1px 0 rgba(255,255,255,.3);cursor:pointer}
+.detail-overlay{align-items:end;padding:0}
+.detail-sheet{width:100%;max-height:92vh;max-height:92dvh;border-radius:30px 30px 0 0;padding:8px}
+.dcard{padding:14px 16px;border-radius:20px}
+.dcard h2{font-size:23px}
+.atlas-dialog{padding:10px}
+.atlas-sheet{padding:16px;border-radius:24px}
+.photo-grid{grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:9px}
+.photo-item img{height:110px}
+.map-popup{width:min(252px,calc(100vw - 32px))}
+}
+@media(min-width:641px) and (max-width:900px){
+.list{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+}
+
+/* hide scrollbars (scrolling still works) so they never push content off-centre */
+html,body,.list,.detail-sheet,.atlas-sheet,.chips,.map-popup{scrollbar-width:none;-ms-overflow-style:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar,.list::-webkit-scrollbar,.detail-sheet::-webkit-scrollbar,.atlas-sheet::-webkit-scrollbar,.chips::-webkit-scrollbar,.map-popup::-webkit-scrollbar{display:none;width:0;height:0}
+
+/* detail sheet: even margins + full-width primary button */
+.detail-sheet{padding:10px}
+.detail-hero{margin:0 0 10px}
+.detail-body{display:flex;flex-direction:column;gap:10px}
+.dcard{margin-top:0;padding:16px 18px}
+.detail-body .dcard:first-child h2{padding-right:44px}
+.detail-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.detail-actions .btn{display:flex;align-items:center;justify-content:center;text-align:center;padding:12px 6px;font-size:12.5px;line-height:1.3;border-radius:16px}
+.detail-actions .btn.primary{grid-column:1/-1;padding:15px 12px;font-size:14px}
+@media(max-width:900px){.detail-sheet{padding:10px 10px calc(10px + env(safe-area-inset-bottom))}.dcard{padding:15px 16px}}
+
+/* header: one consistent rhythm (outer margin = inner padding = gap) */
+.headcard{margin:14px 14px 0}
+.topbar{padding:16px 20px 0;gap:16px}
+.chips{padding:12px 20px 16px}
+.layout{padding:14px}
+@media(max-width:900px){
+.headcard{margin:8px 8px 0}
+.topbar{padding:14px 14px 0;gap:10px}
+.chips{padding:10px 14px 14px}
+.layout{padding:8px}
+}
+
+/* ---- motion ---- */
+@keyframes fadeIn{from{opacity:0}}
+@keyframes fadeOut{to{opacity:0}}
+@keyframes sheetIn{from{opacity:0;transform:translateY(32px) scale(.96)}}
+@keyframes sheetOut{to{opacity:0;transform:translateY(26px) scale(.97)}}
+@keyframes sheetInM{from{transform:translateY(100%)}}
+@keyframes sheetOutM{to{transform:translateY(100%)}}
+@keyframes cardUp{from{opacity:0;transform:translateY(18px)}}
+@keyframes heroIn{from{opacity:0;transform:scale(1.07)}}
+@keyframes popIn{from{opacity:0;transform:translate(12px,-100%) scale(.86)}}
+@keyframes ping{from{box-shadow:0 0 0 0 rgba(37,77,60,.5),0 3px 10px rgba(20,40,30,.28)}to{box-shadow:0 0 0 16px rgba(37,77,60,0),0 3px 10px rgba(20,40,30,.28)}}
+@keyframes vtOut{to{opacity:0;transform:scale(.965)}}
+@keyframes vtIn{from{opacity:0;transform:translateY(14px) scale(1.025)}}
+
+.card{animation:cardUp .6s cubic-bezier(.16,1,.3,1) backwards;animation-delay:calc(var(--i,0)*45ms)}
+.map-popup:not([hidden]){animation:popIn .34s cubic-bezier(.2,.9,.3,1.25) backwards}
+.pin.selected .pill{animation:ping 1.2s ease-out 1}
+
+.detail-overlay:not([hidden]){animation:fadeIn .3s ease both}
+.detail-overlay:not([hidden]) .detail-sheet{animation:sheetIn .55s cubic-bezier(.16,1,.3,1) backwards}
+.detail-overlay:not([hidden]) .detail-hero{animation:heroIn .9s cubic-bezier(.16,1,.3,1) .1s backwards}
+.detail-overlay:not([hidden]) .detail-body>.dcard{animation:cardUp .6s cubic-bezier(.16,1,.3,1) backwards}
+.detail-body>.dcard:nth-child(1){animation-delay:.10s}
+.detail-body>.dcard:nth-child(2){animation-delay:.17s}
+.detail-body>.dcard:nth-child(3){animation-delay:.24s}
+.detail-body>.dcard:nth-child(4){animation-delay:.31s}
+.detail-overlay.closing{animation:fadeOut .23s ease forwards}
+.detail-overlay.closing .detail-sheet{animation:sheetOut .23s cubic-bezier(.5,0,.75,0) forwards}
+.detail-overlay.closing .detail-hero,.detail-overlay.closing .detail-body>.dcard{animation:none}
+
+.atlas-dialog:not([hidden]){animation:fadeIn .25s ease both}
+.atlas-dialog:not([hidden]) .atlas-sheet{animation:sheetIn .5s cubic-bezier(.16,1,.3,1) backwards}
+
+/* list <-> map switch (View Transitions API; falls back to instant) */
+.headcard{view-transition-name:headcard}
+.view-toggle{view-transition-name:vtoggle}
+::view-transition-old(root){animation:vtOut .26s cubic-bezier(.4,0,1,1) both}
+::view-transition-new(root){animation:vtIn .5s cubic-bezier(.16,1,.3,1) both}
+
+@media(max-width:900px){
+.detail-overlay:not([hidden]) .detail-sheet{animation:sheetInM .55s cubic-bezier(.16,1,.3,1) backwards}
+.detail-overlay.closing .detail-sheet{animation:sheetOutM .26s cubic-bezier(.5,0,.75,0) forwards}
+}
+@media(prefers-reduced-motion:reduce){
+*,*::before,*::after{animation:none!important;transition:none!important}
+::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
+}
+
+/* open in Google Maps (plain link, no API key) */
+.maplink{display:block;width:max-content;margin-top:9px;padding:7px 14px;border:1px solid var(--edge);border-radius:999px;background:rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(31,52,42,.1),var(--hl);color:var(--green);font-size:12px;font-weight:600;text-decoration:none;transition:transform .15s,background .15s}
+.maplink:hover{background:#fff;transform:translateY(-1px)}
+
+/* v12: marks + distance */
+.heart{position:absolute;z-index:3;right:9px;top:9px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.86);display:grid;place-items:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.14);transition:transform .15s}
+.heart:hover{transform:scale(1.08)}
+.heart svg{width:18px;height:18px;fill:none;stroke:#44514b;stroke-width:2;stroke-linejoin:round}
+.heart[aria-pressed="true"] svg{fill:#d9485f;stroke:#d9485f}
+.card.vis{border-color:rgba(37,77,60,.55);box-shadow:0 0 0 1.5px rgba(37,77,60,.4),0 6px 22px rgba(31,52,42,.09),var(--hl)}
+.card.vis:hover{box-shadow:0 0 0 1.5px rgba(37,77,60,.55),0 10px 28px rgba(31,52,42,.14),var(--hl)}
+.vbadge{position:absolute;z-index:2;left:9px;bottom:9px;padding:4px 10px;border-radius:999px;background:rgba(37,77,60,.92);color:#fff;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.dist{position:absolute;z-index:2;right:9px;bottom:9px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.9);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;box-shadow:0 2px 8px rgba(0,0,0,.14)}
+.mark-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.mark-btn{border:1px solid rgba(37,77,60,.22);background:rgba(255,255,255,.7);color:#254d3c;font:inherit;font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer}
+.mark-btn[aria-pressed="true"]{background:#254d3c;color:#fff;border-color:#254d3c}
+.mark-btn.fav[aria-pressed="true"]{background:#d9485f;border-color:#d9485f}
+.pill.fav{color:#d9485f}
+.pill.vis{color:#254d3c}
+.pill.cluster.fav{color:#ffd1d8}
+.me{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#2f7cf6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(47,124,246,.22),0 2px 6px rgba(0,0,0,.3);pointer-events:none;z-index:2}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);max-width:min(92vw,420px);padding:11px 18px;border-radius:16px;background:rgba(29,40,36,.92);color:#fff;font-size:13px;line-height:1.5;z-index:60;box-shadow:0 8px 28px rgba(0,0,0,.3)}
+@media (max-width:900px){.toast{bottom:84px}}
+
+/* v15: floating header, list flows underneath */
+.app{--top:140px}
+.headcard{position:absolute;top:0;left:0;right:0;background:linear-gradient(160deg,rgba(255,255,255,.84),rgba(255,255,255,.62))}
+.layout{position:absolute;inset:0;padding:0 14px}
+.side{height:100%}
+.list{padding:var(--top) 8px 28px 6px}
+.mapwrap{margin:var(--top) 0 14px}
+.zoom-level{top:176px}
+.locate-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.locate-btn.on{color:#2f7cf6}
+@media(max-width:900px){
+.layout{padding:0 8px}
+.list{padding:var(--top) 6px 110px}
+.mapwrap{position:absolute;left:8px;right:8px;top:var(--top);bottom:8px;margin:0;height:auto}
+}
+.notice{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:20px;background:rgba(20,32,26,.28)}
+.notice[hidden]{display:none}
+.notice-card{width:min(92vw,380px);padding:22px 22px 18px;border-radius:26px;background:rgba(255,255,255,.92);-webkit-backdrop-filter:saturate(180%) blur(22px);backdrop-filter:saturate(180%) blur(22px);border:1px solid var(--edge);box-shadow:0 18px 50px rgba(20,32,26,.3)}
+.notice-card h4{margin:0 0 8px;font-size:16px}
+.notice-card p{margin:0 0 16px;font-size:14px;line-height:1.7;color:#44514b}
+.notice-card button{width:100%;border:0;border-radius:999px;padding:12px;background:#254d3c;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+
+/* v18: primary filters + detail panel, project info */
+.chip-btn{flex:none;height:38px;padding:0 16px;border:1px solid var(--edge);border-radius:999px;background:rgba(255,255,255,.7);color:inherit;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.chip-btn:hover{background:rgba(255,255,255,.95)}
+.chip-btn.on,.chip-btn[aria-pressed="true"]{background:var(--green);color:#fff;border-color:var(--green);box-shadow:0 4px 12px rgba(37,77,60,.25)}
+.chip-btn[aria-pressed="true"]#favOnly{background:#d9485f;border-color:#d9485f}
+.chip-btn .cnt{display:inline-block;min-width:18px;margin-left:6px;padding:1px 6px;border-radius:999px;background:rgba(37,77,60,.14);font-size:11px}
+.chip-btn.on .cnt{background:rgba(255,255,255,.28)}
+.chips.more{flex-wrap:wrap;overflow:visible;padding-top:0;border-top:1px solid rgba(37,77,60,.08);margin-top:-4px;padding-top:12px}
+.chips.more[hidden]{display:none}
+.mlabel{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.proj-src{margin:10px 0 0;font-size:12px;color:var(--muted)}
+.proj-src a{display:inline-block;margin-left:6px;padding:2px 9px;border-radius:999px;border:1px solid var(--edge);color:var(--green);text-decoration:none;font-weight:600}
+.proj-note{margin:8px 0 0;font-size:11px;color:var(--muted)}
+.detail-info.proj{grid-template-columns:minmax(0,max-content) 1fr}
+
+
+/* v22: segmented visit filter, detail top spacing, swipe grip */
+.seg{flex:none;display:inline-flex;height:38px;padding:3px;gap:2px;border:1px solid var(--edge);border-radius:999px;background:rgba(255,255,255,.7);box-shadow:0 1px 6px rgba(31,52,42,.07),var(--hl)}
+.seg button{border:0;border-radius:999px;padding:0 13px;background:transparent;color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background-color .18s,color .18s,box-shadow .18s}
+.seg button:hover{background:rgba(37,77,60,.08)}
+.seg button[aria-pressed="true"]{background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(37,77,60,.3)}
+.seg button[aria-pressed="true"][data-v=""]{background:rgba(37,77,60,.14);color:var(--ink);box-shadow:none}
+.detail-sheet{position:relative;padding:16px}
+.detail-close{top:10px;margin:10px 10px -48px auto}
+.sheet-grip{display:none}
+@media(max-width:900px){
+.detail-sheet{padding:20px 12px calc(12px + env(safe-area-inset-bottom))}
+.detail-close{top:14px;margin:10px 10px -48px auto}
+.sheet-grip{display:block;position:absolute;left:50%;top:7px;width:38px;height:4px;margin-left:-19px;border-radius:4px;background:rgba(37,77,60,.28);pointer-events:none}
+}
+
+/* v25: filter sheet + active tags */
+.chips{flex-wrap:nowrap}
+.chip-btn .fl{margin-left:0}
+.tags{display:flex;flex-wrap:wrap;gap:6px;padding:0 22px 14px}
+.tags[hidden]{display:none}
+.tag{display:inline-flex;align-items:center;gap:6px;max-width:100%;height:28px;padding:0 10px 0 12px;border:1px solid rgba(37,77,60,.2);border-radius:999px;background:rgba(37,77,60,.1);color:#254d3c;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.tag span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag i{font-style:normal;opacity:.6;font-size:13px;line-height:1}
+.tag:hover{background:rgba(37,77,60,.18)}
+.fs-ov{position:fixed;inset:0;z-index:45;display:grid;place-items:center;padding:24px;background:rgba(22,34,28,.34);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.fs-ov[hidden]{display:none}
+.fs-sheet{position:relative;width:min(440px,100%);max-height:90vh;overflow:auto;border-radius:30px;background:linear-gradient(165deg,rgba(250,251,248,.94),rgba(236,242,236,.88));border:1px solid var(--edge);box-shadow:0 28px 90px rgba(10,24,16,.38),var(--hl);padding:20px 20px 18px;display:flex;flex-direction:column;gap:12px}
+.fs-head{display:flex;align-items:center;justify-content:space-between}
+.fs-head h3{margin:0;font-size:17px}
+.fs-x{width:36px;height:36px;border:1px solid var(--edge);border-radius:50%;background:#fff;font-size:19px;line-height:1;cursor:pointer;color:#1d2824}
+.fs-f{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.fs-f select{appearance:none;-webkit-appearance:none;width:100%;height:46px;padding:0 38px 0 16px;border:1px solid var(--edge);border-radius:16px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23222' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 15px center/12px;font:inherit;font-size:15px;font-weight:500;color:var(--ink);text-overflow:ellipsis}
+.fs-f select.on{border-color:var(--green);box-shadow:0 0 0 2px rgba(37,77,60,.16)}
+.fs-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:6px}
+.fs-done{flex:1;height:48px;border:0;border-radius:999px;background:var(--green);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(37,77,60,.3)}
+.fs-ov:not([hidden]){animation:fadeIn .25s ease both}
+.fs-ov:not([hidden]) .fs-sheet{animation:sheetIn .5s cubic-bezier(.16,1,.3,1) backwards}
+.fs-ov.closing{animation:fadeOut .22s ease forwards}
+.fs-ov.closing .fs-sheet{animation:sheetOut .22s cubic-bezier(.5,0,.75,0) forwards}
+@media(max-width:900px){
+.fs-ov{align-items:end;padding:0}
+.fs-sheet{width:100%;max-height:88vh;max-height:88dvh;border-radius:30px 30px 0 0;padding:26px 16px calc(16px + env(safe-area-inset-bottom))}
+.fs-ov:not([hidden]) .fs-sheet{animation:sheetInM .5s cubic-bezier(.16,1,.3,1) backwards}
+.fs-ov.closing .fs-sheet{animation:sheetOutM .24s cubic-bezier(.5,0,.75,0) forwards}
+.tags{padding:0 14px 12px}
+.chips{gap:6px}
+.seg button{padding:0 10px;font-size:12.5px}
+.chip-btn#moreBtn{padding:0 14px}
+}
+@media(max-width:400px){.seg button{padding:0 7px;font-size:12px}.chip-btn#moreBtn{padding:0 10px;font-size:12px}.chip-btn#favOnly{width:36px!important}.chips{padding-left:10px;padding-right:10px}}
+@media(max-width:480px){.chip-btn .fl{display:none}.chip-btn#favOnly{width:40px;padding:0;font-size:16px}}
+
+/* v26: title font */
+.brand b{font-family:"Yu Gothic","YuGothic","游ゴシック体","游ゴシック","Hiragino Sans","Noto Sans JP",sans-serif;font-weight:700;letter-spacing:.04em}
+
+/* v28: drifting background gradient (stronger) */
+.app{background:#fff;isolation:isolate;overflow:hidden}
+.app::before,.app::after{content:"";position:absolute;inset:-18%;z-index:-1;pointer-events:none;will-change:transform}
+.app::before{background:radial-gradient(48% 40% at 14% 6%,#f6efe0 0,transparent 100%),radial-gradient(46% 42% at 88% 12%,#d9e8e2 0,transparent 100%);animation:bgDriftA 24s ease-in-out infinite alternate}
+.app::after{background:radial-gradient(52% 42% at 52% 96%,#e3e9f1 0,transparent 100%),radial-gradient(40% 36% at 6% 66%,#e6eedf 0,transparent 100%),radial-gradient(38% 34% at 96% 60%,#f3ecdd 0,transparent 100%);animation:bgDriftB 32s ease-in-out infinite alternate}
+@keyframes bgDriftA{0%{transform:translate3d(-9%,-7%,0) scale(1)}50%{transform:translate3d(11%,9%,0) scale(1.25) rotate(5deg)}100%{transform:translate3d(-5%,14%,0) scale(1.08) rotate(-5deg)}}
+@keyframes bgDriftB{0%{transform:translate3d(9%,7%,0) scale(1.12)}50%{transform:translate3d(-12%,-9%,0) scale(1)}100%{transform:translate3d(7%,-13%,0) scale(1.28) rotate(5deg)}}
+@media(prefers-reduced-motion:reduce){.app::before,.app::after{animation:none}}
+.hr{display:flex;align-items:center;gap:8px;justify-self:end}.langbtn{font:inherit;font-size:12px;font-weight:700;color:#2f4a3d;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.8);border:1px solid var(--edge);cursor:pointer;white-space:nowrap}.langbtn:hover{background:#fff}@media(max-width:600px){.hr{gap:4px}.hr .count{padding:6px 8px;font-size:11px}.langbtn{padding:6px 9px;font-size:11px}.brand{gap:8px}}html[lang=en] .brand b{font-family:Georgia,"Times New Roman",serif;font-weight:600;letter-spacing:.01em}@media(max-width:600px){html[lang=en] .brand b{font-size:13.5px}}.brand>div{min-width:0}.brand b{overflow:hidden;text-overflow:ellipsis}.rtag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.02em;background:#e3efe6;color:#2d5a43;border:1px solid #bcd5c3;vertical-align:1px;white-space:nowrap}.reno-note{margin:8px 0 0;font-size:13px;line-height:1.6;color:#44564c}
+/* v38: iOS home-screen app */
+html{background:#fff}
+.app::before,.app::after{display:none!important}
+</style></head><body>
+<div class="app">
+<div class="headcard"><header class="topbar">
+<div class="brand"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiPjxkZWZzPjxjbGlwUGF0aCBpZD0iciI+PHJlY3Qgd2lkdGg9IjEwMjQiIGhlaWdodD0iMTAyNCIgcng9IjIyNSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNyKSI+PHJlY3Qgd2lkdGg9IjEwMjQiIGhlaWdodD0iMTAyNCIgZmlsbD0iI2YxZWJkYyIvPgo8cGF0aCBkPSJNMjMwIDIyMEg0ODBWMjcySDQ0MFY2NDBINTMwQzU4MCA2NDAgNjAzIDYxMCA2MTggNTQ4SDY2MlY3NDBIMjMwVjY4OEgyOTBWMjcySDIzMFoiIGZpbGw9IiMxZjRhM2MiLz4KPHBhdGggZD0iTTcxMiA3NDBWNjI2YzAtNTYgNDAtOTYgOTAtOTZzOTAgNDAgOTAgOTZ2MTE0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjOTk0NjgiIHN0cm9rZS13aWR0aD0iMzAiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8cGF0aCBkPSJNMjMwIDgyMkg4OTIiIHN0cm9rZT0iIzFmNGEzYyIgc3Ryb2tlLXdpZHRoPSIxOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9nPjwvc3ZnPg==" alt="" width="34" height="34" decoding="async"><div><b>東京建築マップ</b><small>CITY ARCHITECTURE ATLAS</small></div></div>
+<label class="searchbar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="search" placeholder="建物名・建築家・住所で検索" autocomplete="off"></label>
+<div class="hr"><div class="count" id="summary"></div><button class="langbtn" id="langBtn" type="button" aria-label="言語 / Language">EN</button></div>
+</header>
+<div class="chips"><button class="chip-btn" id="favOnly" type="button" aria-pressed="false" aria-label="お気に入りのみ">♥<span class="fl"> お気に入り</span></button><div class="seg" id="visitSeg" role="group" aria-label="訪問状況"><button type="button" data-v="" aria-pressed="true">すべて</button><button type="button" data-v="vis" aria-pressed="false">✓ 訪問済み</button><button type="button" data-v="not" aria-pressed="false">未訪問</button></div><input type="hidden" id="visit" value=""><button class="chip-btn" id="moreBtn" type="button" aria-haspopup="dialog" aria-controls="filterSheet">絞り込み<span class="cnt" id="moreCnt" hidden></span></button></div><div class="tags" id="activeTags" hidden></div></div>
+<main class="layout"><section class="side" id="sidePanel"><div class="list" id="list"></div></section><section class="mapwrap"><div id="map"></div></section></main>
+<button class="view-toggle" id="viewToggle" type="button">地図を表示</button>
+</div>
+<div class="fs-ov" id="filterSheet" hidden><section class="fs-sheet" role="dialog" aria-modal="true" aria-label="絞り込み"><div class="sheet-grip" aria-hidden="true"></div><div class="fs-head"><h3>絞り込み</h3><button class="fs-x" type="button" id="fsClose" aria-label="閉じる">×</button></div><label class="fs-f">建築家<select id="architect"><option value="">すべての建築家</option></select></label><label class="fs-f">様式<select id="style"><option value="">すべての様式</option></select></label><label class="fs-f">年代<select id="period"><option value="">すべての年代</option><option value="中世以前">中世以前</option><option value="16–18世紀">16–18世紀</option><option value="19世紀">19世紀</option><option value="20世紀">20世紀</option><option value="21世紀">21世紀</option></select></label><label class="fs-f">用途<select id="use"><option value="">すべての用途</option></select></label><label class="fs-f">リノベーション<select id="reno"><option value="">すべて</option><option value="1">リノベーションのみ</option></select></label><label class="fs-f">並べ替え<select id="sort"><option value="architect">建築家名</option><option value="year">完成年（古い順）</option><option value="name">建物名</option><option value="near">現在地から近い順</option></select></label><div class="fs-foot"><button class="reset" id="resetFilters" type="button">リセット</button><button class="fs-done" id="fsDone" type="button">結果を見る</button></div></section></div>
+<script>
+var buildings=[];
+(function(){
+function fail(m){var l=document.getElementById('list');if(l)l.innerHTML='<div style="padding:24px 16px;line-height:1.7;color:#333"><b>建物データを読み込めませんでした。</b><br>'+m+'</div>'}
+function boot(){var s=document.createElement('script');s.textContent=document.getElementById('appcode').textContent;document.body.appendChild(s)}
+fetch('buildings.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(d){if(!Array.isArray(d)||!d.length)throw new Error('データが空です');buildings=d;boot()}).catch(function(e){fail('('+e.message+') ファイルを直接開いた場合は、フォルダ内でローカルサーバー（例: python3 -m http.server）を起動してから開くか、公開URLからご利用ください。')});
+})();
+</script>
+<script type="text/plain" id="appcode">
+
+let LANG='ja';try{const s=localStorage.getItem('tokyoAtlasLang');if(s==='en'||s==='ja')LANG=s}catch(e){}
+const EN={"縮尺 ": "Zoom ", "件の建物": " buildings", "建築家の概要と、この地図に掲載されているプロジェクト": "Architect overview and the projects listed on this map", "建築家の概要": "Architect overview", "概要を読み込んでいます…": "Loading overview…", " 件の掲載プロジェクト": " projects listed", "年（掲載分）": " (listed projects)", "出典": "Source", "概要はWikipediaから取得し、掲載プロジェクトの年代・用途は地図データから表示しています。出典記事で詳しい経歴や設計思想を確認できます。": "The overview is fetched from Wikipedia; the years and uses of the listed projects come from this map's data. See the source articles for detailed biographies and design philosophy.", "概要を自動取得できませんでした。": "Could not fetch an overview automatically.", "Wikipediaで検索 ↗": "Search Wikipedia ↗", "写真": "Photos", "Wikimedia Commonsの検索結果": "Wikimedia Commons search results", "写真を探しています…": "Looking for photos…", "Wikimedia Commons · 写真を選ぶと原ページと利用条件を確認できます。": "Wikimedia Commons · Select a photo to see its original page and licence terms.", "作者情報は原ページを確認": "See the original page for author details", "原ページ": "Original page", "ライセンスとクレジットは各原ページで確認してください。検索結果なので建物との関連も写真ごとに確かめてください。": "Please check the licence and credit on each original page. These are search results, so also confirm that each photo really shows this building.", "写真を取得できませんでした。": "Could not load photos.", "Commonsで検索 ↗": "Search Commons ↗", "詳細を見る": "Details", "近くの建築物": "Nearby buildings", "この環境では保存できません（ページを閉じると消えます）": "Cannot save in this environment (marks will be lost when the page is closed)", "♥ お気に入り済み": "♥ Favourited", "♡ お気に入りに追加": "♡ Add to favourites", "✓ 訪問済み": "✓ Visited", "✓ 訪問済みにする": "✓ Mark as visited", "お気に入りから外す": "Remove from favourites", "お気に入りに追加": "Add to favourites", "現在地": "My location", "閉じる": "Close", "この環境では現在地を取得できません": "Location is not available in this environment", "現在地を取得しています…": "Getting your location…", "東京以外の場所にいるようです": "You seem to be outside Tokyo", "現在地を表示しました": "Showing your location", "現在地から近い順に並べ替えました（距離は直線距離です）": "Sorted by distance from your location (straight-line distance)", "現在地の利用が許可されていません。ブラウザの設定で許可してください": "Location access is not permitted. Please allow it in your browser settings.", "現在地の取得に時間がかかりすぎました。もう一度お試しください": "Getting your location took too long. Please try again.", "現在地を取得できませんでした": "Could not get your location", "条件に合う建築物はありません。": "No buildings match your filters.", "一覧を表示": "Show list", "地図を表示": "Show map", "プロジェクト情報": "Project information", "公開情報で確認できた項目のみ掲載しています（空欄は未確認または該当なし）。": "Only items confirmed from public information are listed (blank = unverified or not applicable).", "概要": "Overview", "基本情報": "Basic information", "建築家": "Architect", "年": "Year", "用途": "Use", "様式": "Style", "住所": "Address", "Googleマップで開く ↗": "Open in Google Maps ↗", "現在地から": "From your location", "約 ": "approx. ", "（直線距離）": " (straight-line)", "地図で見る": "View on map", "写真を見る": "View photos", "建築家について": "About the architect", "出典 ↗": "Source ↗", "年代": "Period", "並べ替え": "Sort", "中世以前": "Medieval or earlier", "16–18世紀": "16th–18th c.", "19世紀": "19th c.", "20世紀": "20th c.", "21世紀": "21st c.", "東京建築マップ": "Tokyo Architecture Atlas", "CITY ARCHITECTURE ATLAS": "BUILDINGS OF LONDON", "建物名・建築家・住所で検索": "Search by name, architect or address", "お気に入りのみ": "Favourites only", " お気に入り": " Favourites", "訪問状況": "Visit status", "すべて": "All", "未訪問": "Not visited", "絞り込み": "Filters", "すべての建築家": "All architects", "すべての様式": "All styles", "すべての年代": "All periods", "すべての用途": "All uses", "建築家名": "Architect name", "完成年（古い順）": "Year completed (oldest first)", "建物名": "Building name", "現在地から近い順": "Nearest to my location", "リノベーション": "Renovation", "リノベーションのみ": "Renovations only", "改修メモ": "Renovation", "リセット": "Reset", "拡大": "Zoom in", "縮小": "Zoom out", "現在地を表示": "Show my location", "地図の読み込みに失敗しました。ネット接続をご確認ください。": "Failed to load the map. Please check your internet connection.", "言語": "Language", "建築家名は主要な設計者を示します。年は通常の完成年(計画案件は設計者選定年)で、歴史的建築は長期にわたり増改築されている場合があります。写真はWikipedia／Wikimedia Commonsから自動で取得しており、建物と一致しない場合があります。": "The architect shown is the principal designer. The year is normally the completion year (for planned projects, the year the architect was selected); historic buildings may have been extended or altered over a long period. Photos are fetched automatically from Wikipedia / Wikimedia Commons and may not match the building."};
+const PHR=[["。33 Canada SquareはFoster + Partners（Wikipedia）／Pelli（Building誌）と資料により異なる", "; 33 Canada Square: Foster + Partners (Wikipedia) / Pelli (Building magazine) — sources differ"], ["（2008年以降。2005〜2007年はArup）", "(from 2008; 2005–2007: Arup)"], ["（2棟合計・Wikipedia）", "(two buildings combined; Wikipedia)"], ["（Make公式）", "(Make, official)"], ["（Building誌）", "(Building magazine)"], ["（2002年再開）", "(reopened 2002)"], ["。Wikipediaは M-E Engineers と記載）", "; Wikipedia lists M-E Engineers)"], ["（BDP、MICAと協働）", "(with BDP and MICA)"], ["鋼製ラティス屋根は", "steel lattice roof: "], ["。鋼構造は", "; steel structure: "], ["。複合材・仕上げは", "; composites and finishes: "], ["。Avondale Construction（大工・労務）、Laing O'Rourke（機材・資材）", "; Avondale Construction (carpentry/labour), Laing O'Rourke (equipment/materials)"], ["。2013〜16年の改修は", "; 2013–16 refit: "], ["。2013〜2016に改修", "; refitted 2013–2016"], ["。資料により異なる", "; varies by source"], ["）。資料により異なる", ") ; varies by source"], ["※資料により異なる", "(varies by source)"], ["。33 Canada SquareはFoster + Partners（Wikipedia）／Pelli（Building誌）と資料により異なる", "; 33 Canada Square: Foster + Partners (Wikipedia) / Pelli (Building) — sources differ"], ["。33 Canada SquareはHilson Moran Partnership", "; 33 Canada Square: Hilson Moran Partnership"], ["。完成後はLondon Legacy Development Corporationが所有", "; owned by the London Legacy Development Corporation after completion"], ["（Mace契約は2007年11月）", "(Mace contract: November 2007)"], ["（着工は資料により1998/2000年）", "(start of works: 1998/2000 depending on source)"], ["（設計者決定は2026年4月。開館は2030年代初頭の予定）", "(architect selected April 2026; opening planned for the early 2030s)"], ["（資料により2024〜2026）", "(2024–2026 depending on source)"], ["（資料により2007/2008）", "(2007/2008 depending on source)"], ["（着工は資料により", "(start of works varies by source: "], ["（資料により異なる）", "(varies by source)"], ["（資料により", "(varies by source: "], ["（Designing Buildings Wiki記載の期間）", "(period given by Designing Buildings Wiki)"], ["（開業2000年3月）", "(opened March 2000)"], ["（開業2004）", "(opened 2004)"], ["（開業", "(opened "], ["（着工〜開場）", "(construction to opening)"], ["（施工期間）", "(construction period)"], ["（施工）", "(construction)"], ["（建設）", "(construction)"], ["（延床・", "(GFA, "], ["（延床）", "(GFA)"], ["（内部面積）", "(internal area)"], ["（オフィス床面積）", "(office floor area)"], ["（住宅+オフィス）", "(residential + office)"], ["（住宅", "(residential"], ["（店舗・地下）", "(retail / basement)"], ["（旧版・他資料）", "(older edition / other sources)"], ["（旧版）", "(older edition)"], ["（Wikipedia現行）", "(current Wikipedia)"], ["（Wikipedia記載）", "(per Wikipedia)"], ["（現WSP）", "(now WSP)"], ["（現AECOM）", "(now AECOM)"], ["（現Populous）", "(now Populous)"], ["（現", "(now "], ["（オーナー。入居者は", "(owner; tenant: "], ["（出資・事業者）", "(funder / operator)"], ["（インテリア）", "(interior)"], ["（外殻・構造）／", "(shell and structure) / "], ["（外殻）／", "(shell) / "], ["（大工・労務）", "(carpentry/labour)"], ["（機材・資材）", "(equipment/materials)"], ["（製作・施工）", "(fabrication and installation)"], ["（構造・防火）", "(structure and fire)"], ["（構造コンセプトは", "(structural concept: "], ["（彫刻家 Anthony Caro と協働）", "(with sculptor Anthony Caro)"], ["（彫刻家", "(sculptor"], ["と協働）", " collaborating)"], ["（BDP、MICAと協働）", "(with BDP and MICA)"], ["／佐々木睦朗も協働）", " / with Mutsuro Sasaki)"], ["側の", "'s "], ["（Design Museum側のPM）", "(Design Museum's PM)"], ["（OMA側）", "(OMA side)"], ["側）", " side)"], ["（Raconteur記事による）", "(per Raconteur article)"], ["記事による）", " article)"], ["（RIBA）", "(RIBA)"], ["（Dezeen）", "(Dezeen)"], ["も併記）", " also listed)"], ["と記載）", " is stated)"], ["表記の資料もあり）", " in some sources)"], ["記載）", " listed)"], ["誌）。資料により異なる", "magazine); varies by source"], ["誌）", "magazine)"], ["公式）／", "official) / "], ["・計画時）", "; at planning stage)"], ["・計画時", "; at planning stage"], ["現行）。資料により異なる", "current); varies by source"], ["現行）／", "current) / "], ["最長スパン", "longest span "], ["、幅", ", width "], ["、床面積", ", floor area "], ["棟合計・", "two buildings combined; "], ["小売", "retail "], ["オフィス）＋", "office) + "], ["＋オフィス", " + office "], ["内部面積", "internal area "], ["高さ", "height "], ["約", "approx. "], ["が所有", " owns"], ["年代初頭の予定）", "s (planned))"], ["年再開）", " reopened)"], ["月。開館は", " ; opening: "], ["月）", " )"], ["年以降。", "onward; "], ["年は", ""], ["年代", " "], ["年）", ")"], ["に改修", " refitted"], ["契約は", "contract: "], ["は", ": "], ["と", ", "], ["を", ""], ["の", ""], ["異なる", "differs"], ["年", ""]],PUN=[["（", " ("], ["）", ")"], ["／", " / "], ["＋", " + "], ["、", ", "], ["。", "; "], ["〜", "–"], ["・", " · "], ["※", ""]];
+const tr=s=>LANG==='en'&&EN[s]!=null?EN[s]:s;
+const JAre=/[　-ヿ一-鿿＀-￯]/;
+function pv(v){v=String(v==null?'':v);if(LANG!=='en'||!JAre.test(v))return v;for(const[a,b]of PHR)v=v.split(a).join(b);for(const[a,b]of PUN)v=v.split(a).join(b);return v.replace(/(?<=[^\s(])\(/g,' (').replace(/\s+/g,' ').replace(/ \)/g,')').replace(/\( /g,'(').replace(/ ;/g,';').trim()}
+const F=(b,k)=>LANG==='en'&&b[k+'_en']?b[k+'_en']:b[k];
+const yrs=y=>LANG==='en'?String(y):y+'年';
+
+const el=id=>document.getElementById(id);
+function buildOptions(){const lab=(k,v)=>{if(LANG!=='en'||k==='a')return v;const b=buildings.find(x=>x[k]===v&&x[k+'_en']);return b?b[k+'_en']:v};
+[['architect','a'],['use','u'],['style','s']].forEach(([id,k])=>{const s=el(id),cur=s.value;while(s.options.length>1)s.remove(1);[...new Set(buildings.map(b=>b[k]))].map(v=>[v,lab(k,v)]).sort((x,y)=>x[1].localeCompare(y[1],LANG)).forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;s.append(o)});s.value=cur})}
+buildOptions();
+function applyLang(){const L=LANG==='en';document.documentElement.lang=L?'en':'ja';document.title=tr('東京建築マップ');
+const q=(s,f)=>{const e=document.querySelector(s);if(e)f(e)};
+q('.brand b',e=>e.textContent=tr('東京建築マップ'));q('.brand small',e=>e.textContent=tr('CITY ARCHITECTURE ATLAS'));
+el('search').placeholder=tr('建物名・建築家・住所で検索');
+el('favOnly').setAttribute('aria-label',tr('お気に入りのみ'));q('#favOnly .fl',e=>e.textContent=tr(' お気に入り'));
+el('visitSeg').setAttribute('aria-label',tr('訪問状況'));
+document.querySelectorAll('#visitSeg button').forEach(b=>b.textContent=({'':tr('すべて'),vis:tr('✓ 訪問済み'),not:tr('未訪問')})[b.dataset.v]);
+el('moreBtn').firstChild.nodeValue=tr('絞り込み');el('langBtn').textContent=L?'日本語':'EN';el('langBtn').setAttribute('aria-label',L?'Language: switch to Japanese':'言語: 英語に切り替え');
+q('.fs-sheet',e=>e.setAttribute('aria-label',tr('絞り込み')));q('.fs-head h3',e=>e.textContent=tr('絞り込み'));el('fsClose').setAttribute('aria-label',tr('閉じる'));
+[['architect','建築家'],['style','様式'],['period','年代'],['use','用途'],['reno','リノベーション'],['sort','並べ替え']].forEach(([id,l])=>{el(id).parentNode.firstChild.nodeValue=tr(l)});el('reno').options[0].textContent=tr('すべて');el('reno').options[1].textContent=tr('リノベーションのみ');
+el('architect').options[0].textContent=tr('すべての建築家');el('style').options[0].textContent=tr('すべての様式');el('period').options[0].textContent=tr('すべての年代');el('use').options[0].textContent=tr('すべての用途');
+[...el('period').options].slice(1).forEach(o=>o.textContent=tr(o.value));
+[...el('sort').options].forEach(o=>o.textContent=tr(({architect:'建築家名',year:'完成年（古い順）',name:'建物名',near:'現在地から近い順'})[o.value]));
+el('resetFilters').textContent=tr('リセット');
+q('#zoomIn',e=>e.setAttribute('aria-label',tr('拡大')));q('#zoomOut',e=>e.setAttribute('aria-label',tr('縮小')));q('#locateBtn',e=>e.setAttribute('aria-label',tr('現在地を表示')));q('#mapError',e=>e.textContent=tr('地図の読み込みに失敗しました。ネット接続をご確認ください。'));
+q('.atlas-close',e=>e.textContent=tr('閉じる'));q('.detail-close',e=>e.setAttribute('aria-label',tr('閉じる')));
+if(typeof layoutRoot!=='undefined')viewToggle.textContent=layoutRoot.classList.contains('show-map')?tr('一覧を表示'):tr('地図を表示')}
+function setLang(l){if(l===LANG)return;LANG=l;try{localStorage.setItem('tokyoAtlasLang',l)}catch(e){}applyLang();buildOptions();render();drawMap();dialog.hidden=true;if(!detail.hidden){const b=buildings.find(x=>x.n===detail.dataset.n);if(b){const sc=detail.querySelector('.detail-sheet').scrollTop;openDetail(b);detail.querySelector('.detail-sheet').scrollTop=sc}}}
+el('langBtn').onclick=()=>setLang(LANG==='en'?'ja':'en');
+
+const mapHost=el('map');mapHost.innerHTML='<div id="tiles"></div><div id="markers"></div><div class="map-controls"><button id="zoomIn" aria-label="拡大">＋</button><button id="zoomOut" aria-label="縮小">−</button><button id="locateBtn" class="locate-btn" aria-label="現在地を表示" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button></div><div class="map-attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div><div id="mapPopup" class="map-popup" hidden></div><div id="mapError" class="map-error" hidden>地図の読み込みに失敗しました。ネット接続をご確認ください。</div><div class="zoom-level" id="zoomLevel"></div>'; const dialog=document.createElement("div");dialog.className="atlas-dialog";dialog.id="atlasDialog";dialog.hidden=true;dialog.innerHTML="<section class=\"atlas-sheet\" role=\"dialog\" aria-modal=\"true\"><div class=\"atlas-sheet-head\"><div id=\"dialogContent\"></div><button class=\"atlas-close\" type=\"button\">閉じる</button></div></section>";document.body.append(dialog);dialog.addEventListener("click",e=>{if(e.target===dialog||e.target.closest(".atlas-close"))dialog.hidden=true});document.addEventListener("keydown",e=>{if(e.key==="Escape")dialog.hidden=true});
+function cxm(){let o=0;try{const sp=document.getElementById('sidePanel');if(sp&&!sp.classList.contains('is-hidden')&&getComputedStyle(sp).position==='absolute')o=Math.min(mapSize.w*.5,sp.offsetLeft+sp.offsetWidth)/2}catch(e){}return mapSize.w/2+o}let active=null,selected=null,zoom=12,center={lat:35.681,lon:139.767},drag=null,mapSize={w:0,h:0};const tiles=el('tiles'),markersHost=el('markers'),popup=el('mapPopup');function world(lat,lon,z){const size=256*Math.pow(2,z),sin=Math.sin(lat*Math.PI/180);return{x:(lon+180)/360*size,y:(.5-Math.log((1+sin)/(1-sin))/(4*Math.PI))*size}}function screen(pt,cx,cy){return{x:pt.x-cx+cxm(),y:pt.y-cy+mapSize.h/2}}function coordAt(x,y){const size=256*Math.pow(2,zoom),wx=x+world(center.lat,center.lon,zoom).x-cxm(),wy=y+world(center.lat,center.lon,zoom).y-mapSize.h/2,lon=wx/size*360-180,n=Math.PI-2*Math.PI*wy/size,lat=180/Math.PI*Math.atan(Math.sinh(n));return{lat,lon}}function addTile(tx,ty,bz,scale,cx,cy){const max=2**bz;if(ty<0||ty>=max)return;const img=document.createElement('img');img.className='tile';img.alt='';img.draggable=false;img.src='https://tile.openstreetmap.org/'+bz+'/'+((tx%max+max)%max)+'/'+ty+'.png';img.style.width=img.style.height=(256*scale)+'px';img.style.left=((tx*256-cx)*scale+cxm())+'px';img.style.top=((ty*256-cy)*scale+mapSize.h/2)+'px';img.onerror=()=>{el('mapError').hidden=false};img.onload=()=>{el('mapError').hidden=true};tiles.append(img)}function drawMap(){mapSize={w:mapHost.clientWidth,h:mapHost.clientHeight};if(!mapSize.w||!mapSize.h)return;tiles.innerHTML='';const bz=Math.floor(zoom),scale=2**(zoom-bz),c=world(center.lat,center.lon,bz),hl=cxm()/scale,hr=(mapSize.w-cxm())/scale,hh=mapSize.h/(2*scale),x0=Math.floor((c.x-hl)/256),x1=Math.floor((c.x+hr)/256),y0=Math.floor((c.y-hh)/256),y1=Math.floor((c.y+hh)/256);for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)addTile(x,y,bz,scale,c.x,c.y);el('zoomLevel').textContent=tr('縮尺 ')+zoom.toFixed(1);drawPins()}function drawPins(){const rows=[...markersHost.querySelectorAll('.pin')];rows.forEach(x=>x.remove());const filtered=currentRows||buildings,points=filtered.map(b=>({b,p:screen(world(b.lat,b.lon,zoom),world(center.lat,center.lon,zoom).x,world(center.lat,center.lon,zoom).y)})).filter(v=>v.p.x>-30&&v.p.x<mapSize.w+30&&v.p.y>-40&&v.p.y<mapSize.h+40);let groups=[];for(const item of points){let g=groups.find(g=>Math.hypot(g.x-item.p.x,g.y-item.p.y)<34);if(!g){g={x:item.p.x,y:item.p.y,items:[]};groups.push(g)}g.items.push(item.b);g.x=g.items.reduce((sum,b)=>sum+screen(world(b.lat,b.lon,zoom),world(center.lat,center.lon,zoom).x,world(center.lat,center.lon,zoom).y).x,0)/g.items.length;g.y=g.items.reduce((sum,b)=>sum+screen(world(b.lat,b.lon,zoom),world(center.lat,center.lon,zoom).x,world(center.lat,center.lon,zoom).y).y,0)/g.items.length}for(const g of groups){const button=document.createElement('button');button.className='pin';button.style.left=g.x+'px';button.style.top=g.y+'px';button.setAttribute('aria-label',g.items.length===1?g.items[0].n:g.items.length+tr('件の建物'));{const o=g.items[0];button.innerHTML=g.items.length===1?'<span class="pill'+(isF(o.n)?' fav':isV(o.n)?' vis':'')+'">'+(isF(o.n)?'♥ ':isV(o.n)?'✓ ':'')+o.y+'</span>':'<span class="pill cluster'+(g.items.some(b=>isF(b.n))?' fav':'')+'">'+(g.items.some(b=>isF(b.n))?'♥ ':'')+g.items.length+'</span>'}button._names=g.items.map(b=>b.n);if(g.items.some(b=>selected&&b.n===selected.n))button.classList.add('selected');button.onclick=()=>{if(g.items.length===1)select(g.items[0].n);else if(zoom<18){center={lat:g.items[0].lat,lon:g.items[0].lon};zoom++;drawMap()}else showGroup(g.items,g.x,g.y)};markersHost.append(button)}drawMe();if(selected)showPopup(selected)}let currentRows=buildings;const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let architectRequest=0;async function openArchitect(name){const request=++architectRequest,rows=buildings.filter(x=>x.a===name),ys=rows.map(x=>x.y),people=name.split(/\s+\/\s+|\s+and\s+/i).map(x=>x.trim()).filter(Boolean);el('dialogContent').innerHTML='<h2>'+esc(name)+'</h2><p class="subtitle">'+tr('建築家の概要と、この地図に掲載されているプロジェクト')+'</p><section class="bio-panel"><strong>'+tr('建築家の概要')+'</strong><div id="architectBiography"><p>'+tr('概要を読み込んでいます…')+'</p></div></section><div class="architect-stats"><span>'+rows.length+(LANG==='en'&&rows.length===1?' project listed':tr(' 件の掲載プロジェクト'))+'</span><span>'+Math.min(...ys)+'–'+Math.max(...ys)+tr('年（掲載分）')+'</span></div><div class="architect-projects">'+rows.slice().sort((a,b)=>a.y-b.y).map(x=>'<a href="'+esc(x.src)+'" target="_blank" rel="noopener">'+esc(x.n)+'<small>'+yrs(x.y)+' · '+esc(F(x,'u'))+' · '+tr('出典')+' ↗</small></a>').join('')+'</div><p class="dialog-note">'+tr('概要はWikipediaから取得し、掲載プロジェクトの年代・用途は地図データから表示しています。出典記事で詳しい経歴や設計思想を確認できます。')+'</p>';dialog.hidden=false;const load=async person=>{try{const find=async code=>{const u='https://'+code+'.wikipedia.org/w/api.php?action=query&list=search&srsearch='+encodeURIComponent('"'+person+'"')+'&srnamespace=0&srlimit=1&format=json&origin=*',r=await fetch(u),d=await r.json();return d.query?.search?.[0]?.title||''};const L1=LANG==='en'?'en':'ja',L2=LANG==='en'?'ja':'en';let lang=L1,title=await find(L1);if(!title){lang=L2;title=await find(L2)}if(!title)throw Error('not found');const r=await fetch('https://'+lang+'.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(title.replace(/ /g,'_'))),d=await r.json(),extract=d.extract||d.description;if(!extract)throw Error('no summary');const href=d.content_urls?.desktop?.page||('https://'+lang+'.wikipedia.org/wiki/'+encodeURIComponent(title.replace(/ /g,'_')));return '<article class="bio-person"><h3>'+esc(person)+'</h3><p>'+esc(extract.length>850?extract.slice(0,847).replace(/\s+\S*$/,'')+'…':extract)+'</p><a href="'+esc(href)+'" target="_blank" rel="noopener">'+(LANG==='en'?'Read more on Wikipedia ('+(lang==='ja'?'Japanese':'English')+') ↗':'Wikipedia（'+(lang==='ja'?'日本語':'英語')+'）で詳細を見る ↗')+'</a></article>'}catch(e){return '<article class="bio-person"><h3>'+esc(person)+'</h3><p>'+tr('概要を自動取得できませんでした。')+'</p><a href="https://en.wikipedia.org/w/index.php?search='+encodeURIComponent(person)+'" target="_blank" rel="noopener">'+tr('Wikipediaで検索 ↗')+'</a></article>'}};const biographies=await Promise.all(people.map(load));if(request===architectRequest&&el('architectBiography'))el('architectBiography').innerHTML=biographies.join('')}async function openPhotos(b){el('dialogContent').innerHTML='<h2>'+esc(b.n)+' — '+tr('写真')+'</h2><p class="subtitle">'+tr('Wikimedia Commonsの検索結果')+'</p><p>'+tr('写真を探しています…')+'</p>';dialog.hidden=false;try{const txt=h=>{const t=document.createElement('textarea');t.innerHTML=String(h||'').replace(/<[^>]*>/g,'');return t.value.replace(/\s+/g,' ').trim()},api=nm=>'https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(nm)+'&gsrnamespace=6&gsrlimit=16&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=640&format=json&origin=*',get=async nm=>{const r=await fetch(api(nm)),d=await r.json();return Object.values(d.query?.pages||{}).sort((x,y)=>(x.index||0)-(y.index||0))},base=b.n.replace(/\s*\([^)]*\)/g,'').trim(),toks=base.toLowerCase().split(/[^a-z0-9\u00c0-\u024f]+/).filter(w=>w.length>=4&&!['london','tokyo','building','centre','center'].includes(w)),okImg=p=>{const i=p.imageinfo?.[0];if(!i||!i.thumburl||!/^image\/(jpeg|png|webp|gif)/.test(i.mime||''))return false;const m=i.extmetadata||{};return !/Internet Archive|Book Images/i.test([m.Credit?.value,m.Artist?.value,m.Categories?.value].join(' '))},score=p=>{const m=p.imageinfo?.[0]?.extmetadata||{},t=(p.title+' '+(m.ImageDescription?.value||'')+' '+(m.Categories?.value||'')).toLowerCase();return toks.filter(w=>t.includes(w)).length};let ps=(await get('"'+base+'"')).filter(okImg);if(ps.length<4){const seen=new Set(ps.map(p=>p.pageid)),need=Math.max(1,Math.ceil(toks.length*.6));ps=ps.concat((await get(base+' Tokyo')).filter(p=>okImg(p)&&!seen.has(p.pageid)&&(!toks.length||score(p)>=need)))}ps=ps.slice(0,8);if(!ps.length)throw Error();el('dialogContent').innerHTML='<h2>'+esc(b.n)+' — '+tr('写真')+'</h2><p class="subtitle">'+tr('Wikimedia Commons · 写真を選ぶと原ページと利用条件を確認できます。')+'</p><div class="photo-grid">'+ps.map(p=>{const i=p.imageinfo?.[0],m=i?.extmetadata||{},title=txt(m.ObjectName?.value)||p.title.replace(/^File:/,''),artist=txt(m.Artist?.value)||tr('作者情報は原ページを確認');return i?.thumburl?'<a class="photo-item" href="'+esc(i.descriptionurl)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+esc(i.thumburl)+'" alt="'+esc(title)+'"><span>'+esc(title)+'<br>'+esc(artist)+' · '+tr('原ページ')+' ↗</span></a>':''}).join('')+'</div><p class="dialog-note">'+tr('ライセンスとクレジットは各原ページで確認してください。検索結果なので建物との関連も写真ごとに確かめてください。')+'</p>'}catch(e){el('dialogContent').innerHTML='<h2>'+esc(b.n)+' — '+tr('写真')+'</h2><p>'+tr('写真を取得できませんでした。')+'<a target="_blank" rel="noopener" href="https://commons.wikimedia.org/wiki/Special:MediaSearch?type=image&search='+encodeURIComponent(b.n)+'">'+tr('Commonsで検索 ↗')+'</a></p>'}}function clearSelection(){active=null;selected=null;popup.hidden=true;document.querySelectorAll('.card.active').forEach(c=>c.classList.remove('active'));drawPins()}function showPopup(b){selected=b;const pt=screen(world(b.lat,b.lon,zoom),world(center.lat,center.lon,zoom).x,world(center.lat,center.lon,zoom).y);popup.innerHTML='<div class="mini-photo"><div class="ph" data-n="'+esc(b.n)+'"></div></div><div class="mini-body"><strong>'+esc(b.n)+'</strong><div class="meta">'+esc(b.a)+' · '+yrs(b.y)+'</div><button class="mini-btn" type="button">'+tr('詳細を見る')+'</button></div>';popup.hidden=false;popup.querySelector('.mini-btn').onclick=e=>{e.stopPropagation();openDetail(b)};loadThumb(popup.querySelector('.ph'));popup.style.left=Math.max(8,Math.min(mapSize.w-280,pt.x))+'px';popup.style.top=Math.max(90,pt.y-8)+'px'}function showGroup(items,x,y){popup.innerHTML='<div class="mini-body"><strong>'+tr('近くの建築物')+'</strong>'+items.map(b=>'<div><a href="#" data-building="'+b.n+'">'+b.n+' · '+b.a+'</a></div>').join('')+'</div>';popup.hidden=false;popup.style.left=Math.max(8,Math.min(mapSize.w-260,x))+'px';popup.style.top=Math.max(80,y-8)+'px';popup.querySelectorAll('[data-building]').forEach(a=>a.onclick=e=>{e.preventDefault();select(a.dataset.building)})}let cameraTimer=0,cameraMoving=false;function stopCamera(){if(!cameraMoving)return;clearTimeout(cameraTimer);const m=new DOMMatrixReadOnly(getComputedStyle(tiles).transform==='none'?'matrix(1,0,0,1,0,0)':getComputedStyle(tiles).transform);center=coordAt(cxm()-m.m41,mapSize.h/2-m.m42);cameraMoving=false;tiles.style.transition='none';markersHost.style.transition='none';tiles.style.transform='';markersHost.style.transform='';drawMap()}function select(name){const b=buildings.find(x=>x.n===name);if(!b)return;if(cameraMoving)stopCamera();active=name;selected=b;popup.hidden=true;document.querySelectorAll('.card.active').forEach(c=>c.classList.remove('active'));const card=[...document.querySelectorAll('.card')].find(c=>c.dataset.name===name);if(card){card.classList.add('active');card.scrollIntoView({block:'nearest',behavior:'smooth'})}const pt=screen(world(b.lat,b.lon,zoom),world(center.lat,center.lon,zoom).x,world(center.lat,center.lon,zoom).y),dx=cxm()-pt.x,dy=mapSize.h/2-pt.y;if(Math.hypot(dx,dy)<2){center={lat:b.lat,lon:b.lon};drawMap();showPopup(b);return}cameraMoving=true;tiles.style.transition='transform 680ms cubic-bezier(.18,.72,.2,1)';markersHost.style.transition='transform 680ms cubic-bezier(.18,.72,.2,1)';requestAnimationFrame(()=>{const t='translate('+dx+'px,'+dy+'px)';tiles.style.transform=t;markersHost.style.transform=t});const finish=()=>{if(!cameraMoving)return;clearTimeout(cameraTimer);cameraMoving=false;tiles.style.transition='';markersHost.style.transition='';tiles.style.transform='';markersHost.style.transform='';center={lat:b.lat,lon:b.lon};drawMap();showPopup(b)};tiles.addEventListener('transitionend',function done(e){if(e.propertyName!=='transform')return;tiles.removeEventListener('transitionend',done);finish()});cameraTimer=setTimeout(finish,760)}function setZoom(next,ax=cxm(),ay=mapSize.h/2){if(cameraMoving)stopCamera();const anchor=coordAt(ax,ay);zoom=Math.max(11,Math.min(19,next));const q=world(anchor.lat,anchor.lon,zoom),size=256*2**zoom,wx=q.x-(ax-cxm()),wy=q.y-(ay-mapSize.h/2),n=Math.PI-2*Math.PI*wy/size;center={lat:180/Math.PI*Math.atan(Math.sinh(n)),lon:wx/size*360-180};drawMap()}el('zoomIn').onclick=()=>setZoom(zoom+.5);el('zoomOut').onclick=()=>setZoom(zoom-.5);const pts=new Map();let pinch=null,pinchRaf=0;
+function pinchInfo(){const r=mapHost.getBoundingClientRect(),p=[...pts.values()],a=p[0],b=p[1];return{d:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top}}
+function applyPinch(){pinchRaf=0;if(!pinch||pts.size<2)return;const n=pinchInfo(),anchor=coordAt(pinch.mx,pinch.my);zoom=Math.max(11,Math.min(19,zoom+Math.log2(n.d/pinch.d)));const q=world(anchor.lat,anchor.lon,zoom),size=256*2**zoom,wx=q.x-(n.mx-cxm()),wy=q.y-(n.my-mapSize.h/2),k=Math.PI-2*Math.PI*wy/size;center={lat:180/Math.PI*Math.atan(Math.sinh(k)),lon:wx/size*360-180};pinch=n;drawMap()}
+mapHost.addEventListener('gesturestart',e=>e.preventDefault());
+mapHost.addEventListener('pointerdown',e=>{pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(cameraMoving)stopCamera();if(pts.size===2){if(drag){center=coordAt(cxm()-drag.dx,mapSize.h/2-drag.dy);drag=null;tiles.style.transform='';markersHost.style.transform='';popup.style.transform='translate(12px,-100%)'}pinch=pinchInfo();return}if(pts.size>2||e.target.closest('button')||e.target.closest('a'))return;drag={x:e.clientX,y:e.clientY,dx:0,dy:0};mapHost.setPointerCapture(e.pointerId)});mapHost.addEventListener('pointermove',e=>{if(pts.has(e.pointerId))pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch&&pts.size>=2){if(!pinchRaf)pinchRaf=requestAnimationFrame(applyPinch);return}if(!drag)return;drag.dx=e.clientX-drag.x;drag.dy=e.clientY-drag.y;const t='translate('+drag.dx+'px,'+drag.dy+'px)';tiles.style.transform=t;markersHost.style.transform=t;if(!popup.hidden)popup.style.transform='translate(12px,-100%) '+t});function finishDrag(){if(!drag)return;const moved=Math.hypot(drag.dx,drag.dy);if(moved<5){drag=null;clearSelection();return}center=coordAt(cxm()-drag.dx,mapSize.h/2-drag.dy);drag=null;tiles.style.transform='';markersHost.style.transform='';popup.style.transform='translate(12px,-100%)';drawMap()}const endPtr=e=>{pts.delete(e.pointerId);if(pts.size<2)pinch=null;finishDrag()};mapHost.addEventListener('pointerup',endPtr);mapHost.addEventListener('pointercancel',endPtr);mapHost.addEventListener('wheel',e=>{e.preventDefault();const r=mapHost.getBoundingClientRect(),f=e.deltaMode===1?16:e.deltaMode===2?mapSize.h:1;setZoom(zoom-e.deltaY*f/520,e.clientX-r.left,e.clientY-r.top)},{passive:false});window.addEventListener('resize',drawMap);if('ResizeObserver'in window)new ResizeObserver(drawMap).observe(mapHost);
+/* thumbnails: Wikipedia lead image, else exact-phrase Commons match; lazy-loaded and cached */
+const thumbCache=(()=>{try{return JSON.parse(localStorage.getItem('tokyoAtlasThumbsV2')||'{}')}catch(e){return{}}})(),thumbQueue=[];let thumbBusy=0;
+function saveThumbs(){try{localStorage.setItem('tokyoAtlasThumbsV2',JSON.stringify(thumbCache))}catch(e){}}
+async function findThumb(b){try{const w=/^https:\/\/(en|ja)\.wikipedia\.org\/wiki\/([^#?]+)/.exec(b.src||'');if(w){try{const r=await fetch('https://'+w[1]+'.wikipedia.org/api/rest_v1/page/summary/'+w[2]);if(r.ok){const d=await r.json();if(d.thumbnail?.source)return d.thumbnail.source}}catch(e){}}const base=b.n.replace(/\s*\([^)]*\)/g,'').trim(),r=await fetch('https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent('"'+base+'"')+'&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=330&format=json&origin=*'),d=await r.json(),ps=Object.values(d.query?.pages||{}).sort((x,y)=>(x.index||0)-(y.index||0));for(const p of ps){const i=p.imageinfo?.[0];if(!i?.thumburl||!/^image\/(jpeg|png|webp)/.test(i.mime||''))continue;const m=i.extmetadata||{};if(/Internet Archive|Book Images/i.test([m.Credit?.value,m.Artist?.value,m.Categories?.value].join(' ')))continue;return i.thumburl}return ''}catch(e){return null}}
+function applyThumb(t,u){if(!u||!t.isConnected)return;const img=new Image();img.alt='';img.decoding='async';img.onload=()=>img.classList.add('on');img.onerror=()=>img.remove();img.src=u;t.replaceChildren(img)}
+function pumpThumbs(){while(thumbBusy<4&&thumbQueue.length){const t=thumbQueue.shift(),b=buildings.find(x=>x.n===t.dataset.n);if(!b)continue;thumbBusy++;findThumb(b).then(u=>{if(u!==null){thumbCache[b.n]=u;saveThumbs()}applyThumb(t,u)}).finally(()=>{thumbBusy--;pumpThumbs()})}}
+function loadThumb(t){const n=t.dataset.n;if(n in thumbCache){applyThumb(t,thumbCache[n]);return}thumbQueue.push(t);pumpThumbs()}
+const thumbIO='IntersectionObserver'in window?new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){thumbIO.unobserve(e.target);loadThumb(e.target)}}),{root:el('list'),rootMargin:'400px'}):null;
+function hydrateThumbs(){document.querySelectorAll('.card .ph').forEach(t=>{if(thumbIO)thumbIO.observe(t);else loadThumb(t)})}
+
+/* ===== v12: marks / distance ===== */
+let marks={};try{marks=JSON.parse(localStorage.getItem('tokyoAtlasMarks1')||'{}')||{}}catch(e){marks={}}
+function saveMarks(){try{localStorage.setItem('tokyoAtlasMarks1',JSON.stringify(marks))}catch(e){toast(tr('この環境では保存できません（ページを閉じると消えます）'))}}
+const isF=n=>!!(marks[n]&&marks[n].f),isV=n=>!!(marks[n]&&marks[n].v);
+function toggleMark(n,k){const m=marks[n]||(marks[n]={});if(m[k])delete m[k];else m[k]=1;if(!m.f&&!m.v)delete marks[n];saveMarks();refreshMarks(n)}
+const favOnly=()=>el('favOnly').getAttribute('aria-pressed')==='true';
+function markOK(b){const v=el('visit').value;return(!favOnly()||isF(b.n))&&(!v||(v==='vis'&&isV(b.n))||(v==='not'&&!isV(b.n)))}
+function syncDetailMarks(n){const f=detail.querySelector('[data-fav]'),v=detail.querySelector('[data-vis]');if(f){f.setAttribute('aria-pressed',isF(n));f.textContent=isF(n)?tr('♥ お気に入り済み'):tr('♡ お気に入りに追加')}if(v){v.setAttribute('aria-pressed',isV(n));v.textContent=isV(n)?tr('✓ 訪問済み'):tr('✓ 訪問済みにする')}}
+function refreshMarks(n){if(favOnly()||el('visit').value){render()}else{document.querySelectorAll('.card').forEach(c=>{if(c.dataset.name!==n)return;c.classList.toggle('fav',isF(n));c.classList.toggle('vis',isV(n));const h=c.querySelector('.heart');h.setAttribute('aria-pressed',isF(n));h.setAttribute('aria-label',isF(n)?tr('お気に入りから外す'):tr('お気に入りに追加'));});drawPins()}if(detail&&!detail.hidden&&detail.dataset.n===n)syncDetailMarks(n)}
+let toastTimer=0;function toast(t){let d=document.querySelector('.toast');if(!d){d=document.createElement('div');d.className='toast';d.setAttribute('role','status');document.body.append(d)}d.textContent=t;d.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{d.hidden=true},5200)}
+let userPos=null,prevSort='architect';
+function distKm(b){const R=6371,r=Math.PI/180,dl=(b.lat-userPos.lat)*r,dn=(b.lon-userPos.lon)*r,a=Math.sin(dl/2)**2+Math.cos(userPos.lat*r)*Math.cos(b.lat*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(a))}
+function fmtDist(k){return k<1?Math.round(k*1000/10)*10+' m':k<100?k.toFixed(1)+' km':Math.round(k).toLocaleString(LANG)+' km'}
+function drawMe(){markersHost.querySelectorAll('.me').forEach(x=>x.remove());if(!userPos)return;const c=world(center.lat,center.lon,zoom),p=screen(world(userPos.lat,userPos.lon,zoom),c.x,c.y);const d=document.createElement('div');d.className='me';d.setAttribute('aria-label',tr('現在地'));d.style.left=p.x+'px';d.style.top=p.y+'px';markersHost.append(d)}
+const TOKYO={lat:35.681,lon:139.767};
+function showNotice(title,body){let o=document.querySelector('.notice');if(!o){o=document.createElement('div');o.className='notice';o.innerHTML='<div class="notice-card" role="alertdialog" aria-modal="true"><h4></h4><p></p><button type="button"></button></div>';document.body.append(o);o.addEventListener('click',e=>{if(e.target===o||e.target.tagName==='BUTTON')o.hidden=true})}o.querySelector('button').textContent=tr('閉じる');o.querySelector('h4').textContent=title;o.querySelector('p').textContent=body;o.hidden=false}
+function locate(mode){const explicit=mode!=='auto';if(!navigator.geolocation){if(explicit)toast(tr('この環境では現在地を取得できません'));if(mode==='sort'){el('sort').value=prevSort;render()}return}
+if(explicit)toast(tr('現在地を取得しています…'));
+navigator.geolocation.getCurrentPosition(pos=>{userPos={lat:pos.coords.latitude,lon:pos.coords.longitude};const far=distKm(TOKYO),t=document.querySelector('.toast');if(t)t.hidden=true;
+if(far>200){let seen=false;try{seen=!!sessionStorage.getItem('tokyoAtlasFarShown')}catch(e){}if(explicit||!seen){try{sessionStorage.setItem('tokyoAtlasFarShown','1')}catch(e){}showNotice(tr('東京以外の場所にいるようです'),LANG==='en'?'Your location is about '+Math.round(far).toLocaleString('en')+' km from central Tokyo (straight-line distance). The map will stay on Tokyo.':'現在地は東京の中心から約'+Math.round(far).toLocaleString('ja')+' km離れています（直線距離）。地図は東京を表示したままにします。')}}
+else if(mode==='show'){center={lat:userPos.lat,lon:userPos.lon};zoom=Math.max(zoom,15);toast(tr('現在地を表示しました'))}
+else if(mode==='sort')toast(tr('現在地から近い順に並べ替えました（距離は直線距離です）'));
+el('locateBtn').classList.add('on');render();drawMap()},err=>{if(mode==='sort'){el('sort').value=prevSort}if(explicit)toast(tr(err.code===1?'現在地の利用が許可されていません。ブラウザの設定で許可してください':err.code===3?'現在地の取得に時間がかかりすぎました。もう一度お試しください':'現在地を取得できませんでした'));render()},{enableHighAccuracy:false,timeout:10000,maximumAge:60000})}
+const HEART='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.700 4.500 7 4.500c2 0 3.600 1 5 2.900 1.400-1.900 3-2.900 5-2.900 3.300 0 5.400 3.100 4.200 6.600-1.700 4.800-9.200 9.400-9.200 9.400z"/></svg>';
+function render(){const q=el('search').value.toLocaleLowerCase('ja'),a=el('architect').value,p=el('period').value,u=el('use').value,s=el('style').value,sort=el('sort').value,ro=el('reno').value;let rows=buildings.filter(b=>(!q||[b.n,b.a,b.addr,b.k||'',...Object.values(b.p||{})].join(' ').toLocaleLowerCase('ja').includes(q))&&(!a||b.a===a)&&(!p||b.period===p)&&(!u||b.u===u)&&(!s||b.s===s)&&(!ro||b.r)&&markOK(b));rows.sort((x,y)=>sort==='near'&&userPos?distKm(x)-distKm(y):sort==='year'?x.y-y.y:sort==='name'?x.n.localeCompare(y.n,'ja'):x.a.localeCompare(y.a,'ja')||x.n.localeCompare(y.n,'ja'));['architect','period','use','style','visit','reno'].forEach(id=>el(id).classList.toggle('on',!!el(id).value));el('favOnly').classList.toggle('on',favOnly());document.querySelectorAll('#visitSeg button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v===el('visit').value)));{const n=[el('architect').value,el('style').value,el('period').value,el('use').value,el('reno').value,el('sort').value!=='architect'].filter(Boolean).length;el('moreCnt').textContent=n;el('moreCnt').hidden=!n;el('moreBtn').classList.toggle('on',!!n)}currentRows=rows;el('summary').textContent=rows.length+' / '+buildings.length+(LANG==='en'?'':' 件');renderTags();el('fsDone').textContent=LANG==='en'?'Show '+rows.length:rows.length+'件を見る';if(el('panelCount'))el('panelCount').textContent=rows.length;el('list').innerHTML=rows.length?rows.map((b,i)=>'<article class="card'+(isF(b.n)?' fav':'')+(isV(b.n)?' vis':'')+'" style="--i:'+Math.min(i,12)+'" data-name="'+esc(b.n)+'" tabindex="0"><div class="card-photo"><div class="ph" data-n="'+esc(b.n)+'"></div><span class="badge">'+esc(tr(b.period))+'</span><button class="heart" type="button" aria-pressed="'+isF(b.n)+'" aria-label="'+(isF(b.n)?tr('お気に入りから外す'):tr('お気に入りに追加'))+'">'+HEART+'</button>'+(userPos?'<span class="dist">'+fmtDist(distKm(b))+'</span>':'')+'</div><div class="card-text"><div class="card-row"><h3>'+esc(b.n)+'</h3><span class="card-year">'+b.y+'</span></div><div class="meta">'+esc(b.a)+'</div><div class="meta">'+esc(F(b,'u'))+' · '+esc(F(b,'s'))+(b.r?'<span class="rtag">'+tr('リノベーション')+'</span>':'')+'</div></div></article>').join('')+'<p class="list-note">'+tr('建築家名は主要な設計者を示します。年は通常の完成年(計画案件は設計者選定年)で、歴史的建築は長期にわたり増改築されている場合があります。写真はWikipedia／Wikimedia Commonsから自動で取得しており、建物と一致しない場合があります。')+'</p>':'<div class="empty">'+tr('条件に合う建築物はありません。')+'</div>';
+document.querySelectorAll('.card').forEach(c=>{const b=buildings.find(x=>x.n===c.dataset.name);const go=()=>{if(matchMedia('(max-width:900px)').matches||active===b.n)openDetail(b);else select(b.n)};c.onclick=e=>{if(e.target.closest('.heart'))return;go()};c.onkeydown=e=>{if(e.key==='Enter'&&e.target===c)go()};c.querySelector('.heart').onclick=e=>{e.stopPropagation();toggleMark(b.n,'f')};c.onmouseenter=()=>hlPins(b.n);c.onmouseleave=()=>hlPins('')});
+if(selected&&!rows.some(b=>b.n===selected.n)){selected=null;popup.hidden=true}hydrateThumbs();drawPins()}
+
+const layoutRoot=document.querySelector('.layout'),viewToggle=el('viewToggle');
+function switchView(on,after){const f=()=>{layoutRoot.classList.toggle('show-map',on);viewToggle.textContent=on?tr('一覧を表示'):tr('地図を表示');if(on)drawMap();if(after)after()};if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion:reduce)').matches)document.startViewTransition(f);else f()}
+viewToggle.onclick=()=>switchView(!layoutRoot.classList.contains('show-map'));
+function hlPins(name){markersHost.querySelectorAll('.pin').forEach(p=>p.classList.toggle('hl',!!name&&(p._names||[]).includes(name)))}
+const detail=document.createElement('div');detail.className='detail-overlay';detail.hidden=true;detail.innerHTML='<section class="detail-sheet" role="dialog" aria-modal="true"><div class="sheet-grip" aria-hidden="true"></div><button class="detail-close" type="button" aria-label="閉じる">×</button><div class="detail-hero" hidden><div class="ph" id="detailPhoto"></div></div><div class="detail-body" id="detailBody"></div></section>';document.body.append(detail);
+let closeTimer=0;function closeDetail(){if(detail.hidden||detail.classList.contains('closing'))return;detail.classList.add('closing');closeTimer=setTimeout(()=>{detail.hidden=true;detail.classList.remove('closing')},230)}
+detail.addEventListener('click',e=>{if(e.target===detail||e.target.closest('.detail-close'))closeDetail()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&dialog.hidden)closeDetail()});
+(function(){const sh=detail.querySelector('.detail-sheet');let y0=0,x0=0,t0=0,dy=0,drag=false,track=false;
+const mobile=()=>matchMedia('(max-width:900px)').matches;
+function reset(){sh.style.transition='';sh.style.transform='';detail.style.backgroundColor=''}
+sh.addEventListener('touchstart',e=>{if(!mobile()||e.touches.length!==1||detail.classList.contains('closing')){track=false;return}track=sh.scrollTop<=0;drag=false;dy=0;y0=e.touches[0].clientY;x0=e.touches[0].clientX;t0=e.timeStamp},{passive:true});
+sh.addEventListener('touchmove',e=>{if(!track)return;const t=e.touches[0],ddy=t.clientY-y0,ddx=t.clientX-x0;
+ if(!drag){if(sh.scrollTop>0||ddy<=0&&Math.abs(ddy)>6){track=false;return}if(ddy>8&&ddy>Math.abs(ddx)){drag=true;sh.style.transition='none'}else return}
+ e.preventDefault();dy=Math.max(0,ddy);sh.style.transform='translateY('+dy+'px)';detail.style.backgroundColor='rgba(22,34,28,'+(.34*Math.max(0,1-dy/(sh.offsetHeight||600))).toFixed(3)+')'},{passive:false});
+function end(e){if(!drag){track=false;return}drag=false;track=false;const v=dy/Math.max(1,e.timeStamp-t0);
+ if(dy>110||v>.6&&dy>40){sh.style.transition='transform .24s cubic-bezier(.5,0,.75,0)';sh.style.transform='translateY(105%)';detail.style.transition='background-color .24s';detail.style.backgroundColor='rgba(22,34,28,0)';clearTimeout(closeTimer);closeTimer=setTimeout(()=>{detail.hidden=true;detail.style.transition='';reset()},240)}
+ else{sh.style.transition='transform .28s cubic-bezier(.16,1,.3,1)';sh.style.transform='translateY(0)';detail.style.backgroundColor='';setTimeout(()=>{if(!drag)reset()},300)}}
+sh.addEventListener('touchend',end);sh.addEventListener('touchcancel',end);
+new MutationObserver(()=>{if(!detail.hidden){reset()}}).observe(detail,{attributes:true,attributeFilter:['hidden']});
+})();
+
+function setHero(b,u){const h=detail.querySelector('.detail-hero'),ph=el('detailPhoto');if(!u){h.hidden=true;return}h.hidden=false;const big=u.replace(/\/\d+px-([^\/]+)$/,'/500px-$1'),img=new Image();let retried=big===u;img.alt=b.n;img.onload=()=>img.classList.add('on');img.onerror=()=>{if(!retried){retried=true;img.src=u}else h.hidden=true};img.src=big;ph.replaceChildren(img)}
+
+const PROJ=[['t','Project type'],['c','Client'],['yr','Year'],['sz','Size'],['dm','Development Manager'],['da','Design Architect'],['ed','Executive Design'],['se','Structural Engineer'],['me','Mechanical Engineer'],['hc','Heritage Consultant'],['pc','Planning Consultant'],['pm','Project Manager'],['qs','Quantity Surveyor'],['mc','Main Contractor']];
+function projHTML(b){const p=b.p||{},rows=PROJ.filter(([k])=>p[k]);if(!rows.length)return'';return'<section class="dcard"><h4>'+tr('プロジェクト情報')+'</h4><dl class="detail-info proj">'+rows.map(([k,l])=>'<dt>'+l+'</dt><dd>'+esc(pv(p[k]))+'</dd>').join('')+'</dl>'+(b.ps&&b.ps.length?'<p class="proj-src">'+tr('出典')+b.ps.map((u,i)=>'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+(i+1)+' ↗</a>').join('')+'</p>':'')+'<p class="proj-note">'+tr('公開情報で確認できた項目のみ掲載しています（空欄は未確認または該当なし）。')+'</p></section>'}
+function openDetail(b){if(!b)return;clearTimeout(closeTimer);detail.classList.remove('closing');detail.dataset.n=b.n;el('detailBody').innerHTML='<section class="dcard"><h2>'+esc(b.n)+'</h2><p class="detail-sub">'+esc(b.a)+' · '+yrs(b.y)+'</p><div class="detail-tags"><span>'+esc(tr(b.period))+'</span><span>'+esc(F(b,'u'))+'</span><span>'+esc(F(b,'s'))+'</span>'+(b.r?'<span class="rtag">'+tr('リノベーション')+'</span>':'')+'</div><div class="mark-row"><button class="mark-btn fav" type="button" data-fav aria-pressed="false">'+tr('♡ お気に入りに追加')+'</button><button class="mark-btn" type="button" data-vis aria-pressed="false">'+tr('✓ 訪問済みにする')+'</button></div></section><section class="dcard"><h4>'+tr('概要')+'</h4><p class="detail-desc">'+esc(F(b,'d'))+'</p>'+(b.rn?'<p class="reno-note"><b>'+tr('改修メモ')+':</b> '+esc(F(b,'rn'))+'</p>':'')+'</section><section class="dcard"><h4>'+tr('基本情報')+'</h4><dl class="detail-info"><dt>'+tr('建築家')+'</dt><dd>'+esc(b.a)+'</dd><dt>'+tr('年')+'</dt><dd>'+yrs(b.y)+'</dd><dt>'+tr('用途')+'</dt><dd>'+esc(F(b,'u'))+'</dd><dt>'+tr('様式')+'</dt><dd>'+esc(F(b,'s'))+'</dd><dt>'+tr('住所')+'</dt><dd>'+esc(b.addr)+'<a class="maplink" href="'+esc('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(b.n+', '+b.addr))+'" target="_blank" rel="noopener">'+tr('Googleマップで開く ↗')+'</a></dd>'+(userPos?'<dt>'+tr('現在地から')+'</dt><dd>'+tr('約 ')+fmtDist(distKm(b))+tr('（直線距離）')+'</dd>':'')+'</dl></section>'+projHTML(b)+'<section class="dcard detail-actions"><button class="btn primary" type="button" data-map>'+tr('地図で見る')+'</button><button class="btn" type="button" data-photo>'+tr('写真を見る')+'</button><button class="btn" type="button" data-arch>'+tr('建築家について')+'</button><a class="btn" href="'+esc(b.src)+'" target="_blank" rel="noopener">'+tr('出典 ↗')+'</a></section>';const body=el('detailBody');syncDetailMarks(b.n);body.querySelector('[data-fav]').onclick=()=>toggleMark(b.n,'f');body.querySelector('[data-vis]').onclick=()=>toggleMark(b.n,'v');body.querySelector('[data-map]').onclick=()=>{closeDetail();if(!layoutRoot.classList.contains('show-map')&&matchMedia('(max-width:900px)').matches)switchView(true,()=>{drawMap();select(b.n)});else{drawMap();select(b.n)}};body.querySelector('[data-photo]').onclick=()=>openPhotos(b);body.querySelector('[data-arch]').onclick=()=>openArchitect(b.a);detail.hidden=false;detail.querySelector('.detail-sheet').scrollTop=0;const c=thumbCache[b.n];if(c)setHero(b,c);else{setHero(b,'');findThumb(b).then(u=>{if(u!==null){thumbCache[b.n]=u;saveThumbs()}if(!detail.hidden&&detail.dataset.n===b.n)setHero(b,u)})}}
+
+el('locateBtn').onclick=()=>locate('show');
+{const hc=document.querySelector('.headcard'),app=document.querySelector('.app'),setTop=()=>app.style.setProperty('--top',(hc.offsetTop+hc.offsetHeight+12)+'px');setTop();if('ResizeObserver'in window)new ResizeObserver(setTop).observe(hc);window.addEventListener('resize',setTop)}
+try{if(navigator.permissions&&navigator.permissions.query)navigator.permissions.query({name:'geolocation'}).then(r=>{if(r.state==='granted')locate('auto')}).catch(()=>{})}catch(e){}
+el('resetFilters').onclick=()=>{['search','architect','period','use','style','visit','reno'].forEach(id=>el(id).value='');el('favOnly').setAttribute('aria-pressed','false');el('sort').value='architect';prevSort='architect';render()};['search','architect','period','use','style','visit','reno','sort'].forEach(id=>el(id).addEventListener(id==='search'?'input':'change',render));document.querySelectorAll('#visitSeg button').forEach(x=>x.onclick=()=>{el('visit').value=x.dataset.v;render()});el('favOnly').onclick=()=>{el('favOnly').setAttribute('aria-pressed',String(!favOnly()));render()};el('moreBtn').onclick=openFilters;
+const FS=el('filterSheet'),fsSheet=FS.querySelector('.fs-sheet');let fsTimer=0;
+const TAGDEF=[['architect','建築家'],['style','様式'],['period','年代'],['use','用途'],['reno','リノベーション'],['sort','並べ替え']];
+function renderTags(){const box=el('activeTags'),h=[];TAGDEF.forEach(([id,l])=>{const e=el(id);if(id==='sort'?e.value==='architect':!e.value)return;const t=e.options[e.selectedIndex].text;h.push('<button class="tag" type="button" data-k="'+id+'" aria-label="'+(LANG==='en'?'Remove filter: '+tr(l):l+'の条件を解除')+'"><span>'+tr(l)+': '+esc(t)+'</span><i>×</i></button>')});box.innerHTML=h.join('');box.hidden=!h.length}
+el('activeTags').addEventListener('click',e=>{const b=e.target.closest('.tag');if(!b)return;const id=b.dataset.k;if(id==='sort'){el('sort').value='architect';prevSort='architect'}else el(id).value='';render()});
+function openFilters(){clearTimeout(fsTimer);FS.classList.remove('closing');FS.hidden=false;fsSheet.style.transform='';FS.style.backgroundColor='';el('moreBtn').setAttribute('aria-expanded','true')}
+function closeFilters(){if(FS.hidden||FS.classList.contains('closing'))return;FS.classList.add('closing');fsTimer=setTimeout(()=>{FS.hidden=true;FS.classList.remove('closing');el('moreBtn').setAttribute('aria-expanded','false')},230)}
+el('fsClose').onclick=closeFilters;el('fsDone').onclick=closeFilters;FS.addEventListener('click',e=>{if(e.target===FS)closeFilters()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!FS.hidden)closeFilters()});
+(function(){let y0=0,x0=0,t0=0,dy=0,drag=false,track=false;const mobile=()=>matchMedia('(max-width:900px)').matches;
+fsSheet.addEventListener('touchstart',e=>{if(!mobile()||e.touches.length!==1||FS.classList.contains('closing')){track=false;return}track=fsSheet.scrollTop<=0;drag=false;dy=0;y0=e.touches[0].clientY;x0=e.touches[0].clientX;t0=e.timeStamp},{passive:true});
+fsSheet.addEventListener('touchmove',e=>{if(!track)return;const t=e.touches[0],ddy=t.clientY-y0,ddx=t.clientX-x0;if(!drag){if(fsSheet.scrollTop>0||ddy<=0&&Math.abs(ddy)>6){track=false;return}if(ddy>8&&ddy>Math.abs(ddx)){drag=true;fsSheet.style.transition='none'}else return}e.preventDefault();dy=Math.max(0,ddy);fsSheet.style.transform='translateY('+dy+'px)';FS.style.backgroundColor='rgba(22,34,28,'+(.34*Math.max(0,1-dy/(fsSheet.offsetHeight||500))).toFixed(3)+')'},{passive:false});
+function end(e){if(!drag){track=false;return}drag=false;track=false;const v=dy/Math.max(1,e.timeStamp-t0);if(dy>90||v>.6&&dy>40){fsSheet.style.transition='transform .22s cubic-bezier(.5,0,.75,0)';fsSheet.style.transform='translateY(105%)';FS.style.transition='background-color .22s';FS.style.backgroundColor='rgba(22,34,28,0)';clearTimeout(fsTimer);fsTimer=setTimeout(()=>{FS.hidden=true;FS.style.transition='';fsSheet.style.transition='';fsSheet.style.transform='';FS.style.backgroundColor='';el('moreBtn').setAttribute('aria-expanded','false')},230)}else{fsSheet.style.transition='transform .28s cubic-bezier(.16,1,.3,1)';fsSheet.style.transform='translateY(0)';FS.style.backgroundColor='';setTimeout(()=>{if(!drag){fsSheet.style.transition='';fsSheet.style.transform=''}},300)}}
+fsSheet.addEventListener('touchend',end);fsSheet.addEventListener('touchcancel',end)})();
+el('sort').addEventListener('change',()=>{if(el('sort').value==='near'){if(!userPos)locate('sort')}else prevSort=el('sort').value});applyLang();render();drawMap();
+</script></body></html>

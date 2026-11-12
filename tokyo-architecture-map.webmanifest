@@ -1,0 +1,12 @@
+{
+  "name": "Tokyo Architecture Atlas",
+  "short_name": "Tokyo Atlas",
+  "description": "東京の建築を建築家・年代・用途・様式から探すインタラクティブマップ",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {"src": "tokyo-architecture-atlas-icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "tokyo-architecture-atlas-icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
