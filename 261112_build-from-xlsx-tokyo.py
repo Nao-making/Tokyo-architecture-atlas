@@ -5,7 +5,7 @@
 import sys,json,re
 from openpyxl import load_workbook
 KEYS=['n','a','y','u','s','addr','lat','lon','period','d','src','k',
- 't','c','yr','sz','dm','da','ed','se','me','hc','pc','pm','qs','mc','ps','u_en','s_en','d_en','r','rn','rn_en']
+ 't','c','yr','sz','dm','da','ed','se','me','hc','pc','pm','qs','mc','ps','u_en','s_en','d_en','r','rn','rn_en','n_ja']
 PROJ=['t','c','yr','sz','dm','da','ed','se','me','hc','pc','pm','qs','mc']
 PERIODS={'中世以前','16–18世紀','19世紀','20世紀','21世紀'}
 def s(v):return v.strip() if isinstance(v,str) else v
@@ -43,6 +43,8 @@ def load(path):
         if b.get('rn'):d['rn']=b['rn']
         if b.get('rn_en'):d['rn_en']=b['rn_en']
         if b.get('k'):d['k']=b['k']
+        if b.get('n_ja'):d['n_ja']=b['n_ja']
+        else:warns.append(f'行{i} {b["n"]}: 建物名（日本語）が空です')
         out.append(d)
     names=[d['n'] for d in out]
     for n in {x for x in names if names.count(x)>1}:errs.append(f'建物名が重複: {n}')
