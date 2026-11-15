@@ -5,9 +5,10 @@
 ## 構成
 
 - `index.html`：地図・一覧・絞り込み・日英切替などをまとめた静的ページ。建物データは含まず、起動時に `buildings.json` を読み込みます。
-- `buildings.json`：建物データ（491件）。`261112_buildings_Tokyo-v6.xlsx` から生成します。
+- `buildings.json`：建物データ（491件）。`261115_buildings_Tokyo-v7.xlsx` から生成します。
+- 建物名は英語名（`n`）が基準キー、日本語の正式名称は `n_ja`。UIが日本語のときは `n_ja`、英語のときは `n` を表示します（お気に入り等の保存キーは `n`）。
 - `261112_build-from-xlsx-tokyo.py`：Excel → `buildings.json` の変換・検証スクリプト。
-  `python3 261112_build-from-xlsx-tokyo.py 261112_buildings_Tokyo-v6.xlsx buildings.json`
+  `python3 261112_build-from-xlsx-tokyo.py 261115_buildings_Tokyo-v7.xlsx buildings.json`
 - `_headers`：Cloudflare Pages向けヘッダー設定（現在の公開先はGitHub Pagesのため未使用）。
 - `tokyo-architecture-atlas-icon*`、`tokyo-architecture-map.webmanifest`：アイコンとmanifest。
 
@@ -24,7 +25,7 @@
 - 公開先：GitHub `Nao-making/Tokyo-architecture-atlas`（GitHub Pages）。
 - 地図タイルはOpenStreetMap、写真と建築家概要はWikimedia Commons／Wikipediaから取得します（インターネット接続が必要）。
 - 追加しないもの：APIキー、パスワード、個人情報。
-- Excel（`261112_buildings_Tokyo-v6.xlsx`）はリポジトリに含めません。
+- Excel（`261115_buildings_Tokyo-v7.xlsx`）はリポジトリに含めません。
 
 ## 依頼文の例
 
